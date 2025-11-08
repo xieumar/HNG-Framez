@@ -1,5 +1,6 @@
 import { useUser, useClerk } from "@clerk/clerk-expo";
 import { useQuery } from "convex/react";
+import { Alert } from "react-native";
 import { api } from "../../convex/_generated/api";
 import {
   View,
@@ -9,10 +10,13 @@ import {
   ActivityIndicator,
   Image,
   TouchableOpacity,
-  Alert,
+  Platform,
+  Modal,
+  Pressable,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useState } from "react";
 
 function formatTimestamp(timestamp: number) {
   const date = new Date(timestamp);
@@ -61,18 +65,39 @@ export default function ProfileScreen() {
     convexUser ? { userId: convexUser._id } : "skip"
   );
 
-  const handleSignOut = () => {
-    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Sign Out",
-        style: "destructive",
-        onPress: async () => {
+  const handleSignOut = async () => {
+    const confirmMessage = "Are you sure you want to sign out?";
+    
+    // Use window.confirm for web, Alert for mobile
+    if (Platform.OS === "web") {
+      if (window.confirm(confirmMessage)) {
+        try {
           await signOut();
-          router.replace("/(auth)/sign-in");
+          // Force a full page reload on web to clear all state
+          window.location.href = "/";
+        } catch (error) {
+          console.error("Sign out error:", error);
+          alert("Failed to sign out. Please try again.");
+        }
+      }
+    } else {
+      Alert.alert("Sign Out", confirmMessage, [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Sign Out",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await signOut();
+              router.replace("/");
+            } catch (error) {
+              console.error("Sign out error:", error);
+              Alert.alert("Error", "Failed to sign out. Please try again.");
+            }
+          },
         },
-      },
-    ]);
+      ]);
+    }
   };
 
   if (convexUser === undefined || userPosts === undefined) {

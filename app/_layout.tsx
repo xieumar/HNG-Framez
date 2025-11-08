@@ -38,11 +38,13 @@ function InitialLayout() {
     const inAuthGroup = segments[0] === "(auth)";
 
     if (isSignedIn && inAuthGroup) {
+      // User is signed in but viewing auth screens, redirect to feed
       router.replace("/(tabs)/feed");
     } else if (!isSignedIn && !inAuthGroup) {
+      // User is not signed in but viewing protected screens, redirect to sign in
       router.replace("/(auth)/sign-in");
     }
-  }, [isSignedIn, isLoaded, segments]);
+  }, [isSignedIn, isLoaded]);
 
   if (!isLoaded) {
     return (
