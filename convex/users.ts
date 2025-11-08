@@ -18,12 +18,17 @@ export const store = mutation({
       await ctx.db.patch(existing._id, {
         name: args.name,
         email: args.email,
-        avatar: args.avatar,
+        ...(args.avatar && { avatar: args.avatar }),
       });
       return existing._id;
     }
 
-    return await ctx.db.insert("users", args);
+    return await ctx.db.insert("users", {
+      clerkId: args.clerkId,
+      name: args.name,
+      email: args.email,
+      ...(args.avatar && { avatar: args.avatar }),
+    });
   },
 });
 
