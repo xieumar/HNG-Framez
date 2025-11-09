@@ -147,95 +147,72 @@ export function FadeInView({
   );
 }
 
-// Cute Loading Indicator
+// Cute Loading Indicator - Three Pulsing Dots
 export function CuteLoader() {
   const { colors } = useTheme();
-  const spinValue = new Animated.Value(0);
-  const scaleValue = new Animated.Value(1);
-  const bounceValue = new Animated.Value(0);
+  
+  const Dot = ({ delay }: { delay: number }) => {
+    const scaleValue = new Animated.Value(0.3);
+    const opacityValue = new Animated.Value(0.3);
 
-  useEffect(() => {
-    Animated.loop(
-      Animated.parallel([
-        Animated.timing(spinValue, {
-          toValue: 1,
-          duration: 2000,
-          easing: Easing.linear,
-          useNativeDriver: true,
-        }),
+    useEffect(() => {
+      Animated.loop(
         Animated.sequence([
-          Animated.timing(scaleValue, {
-            toValue: 1.15,
-            duration: 1000,
-            easing: Easing.inOut(Easing.ease),
-            useNativeDriver: true,
-          }),
-          Animated.timing(scaleValue, {
-            toValue: 1,
-            duration: 1000,
-            easing: Easing.inOut(Easing.ease),
-            useNativeDriver: true,
-          }),
-        ]),
-        Animated.sequence([
-          Animated.timing(bounceValue, {
-            toValue: -10,
-            duration: 500,
-            easing: Easing.out(Easing.ease),
-            useNativeDriver: true,
-          }),
-          Animated.timing(bounceValue, {
-            toValue: 0,
-            duration: 500,
-            easing: Easing.bounce,
-            useNativeDriver: true,
-          }),
-        ]),
-      ])
-    ).start();
-  }, []);
+          Animated.parallel([
+            Animated.timing(scaleValue, {
+              toValue: 1,
+              duration: 600,
+              delay,
+              easing: Easing.inOut(Easing.ease),
+              useNativeDriver: true,
+            }),
+            Animated.timing(opacityValue, {
+              toValue: 1,
+              duration: 600,
+              delay,
+              easing: Easing.inOut(Easing.ease),
+              useNativeDriver: true,
+            }),
+          ]),
+          Animated.parallel([
+            Animated.timing(scaleValue, {
+              toValue: 0.3,
+              duration: 600,
+              easing: Easing.inOut(Easing.ease),
+              useNativeDriver: true,
+            }),
+            Animated.timing(opacityValue, {
+              toValue: 0.3,
+              duration: 600,
+              easing: Easing.inOut(Easing.ease),
+              useNativeDriver: true,
+            }),
+          ]),
+        ])
+      ).start();
+    }, []);
 
-  const spin = spinValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["0deg", "360deg"],
-  });
+    return (
+      <Animated.View
+        style={[
+          styles.loaderDot,
+          {
+            backgroundColor: colors.primary,
+            transform: [{ scale: scaleValue }],
+            opacity: opacityValue,
+          },
+        ]}
+      />
+    );
+  };
 
   return (
     <View style={styles.loaderContainer}>
-      <Animated.View
-        style={[
-          styles.loaderWrapper,
-          {
-            transform: [{ translateY: bounceValue }],
-          },
-        ]}
-      >
-        <Animated.View
-          style={[
-            styles.loader,
-            {
-              backgroundColor: colors.primary,
-              transform: [{ rotate: spin }, { scale: scaleValue }],
-            },
-          ]}
-        >
-          <View style={[styles.loaderInner, { backgroundColor: colors.secondary }]}>
-            <View style={[styles.loaderDot, { backgroundColor: colors.accent }]} />
-          </View>
-        </Animated.View>
-      </Animated.View>
-      <Animated.Text 
-        style={[
-          styles.loaderText, 
-          { color: colors.text },
-          { transform: [{ scale: scaleValue }] }
-        ]}
-      >
-        ✨ Loading magic...
-      </Animated.Text>
-      <Text style={[styles.loaderSubtext, { color: colors.textSecondary }]}>
-        Hold tight! We're getting things ready 🌟
-      </Text>
+      <View style={styles.dotsWrapper}>
+        <Dot delay={0} />
+        <Dot delay={200} />
+        <Dot delay={400} />
+      </View>
     </View>
   );
 }
@@ -291,39 +268,16 @@ const styles = StyleSheet.create({
     padding: 20,
     flex: 1,
   },
-  loaderWrapper: {
+  dotsWrapper: {
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 20,
-  },
-  loader: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 10,
-  },
-  loaderInner: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: "center",
-    alignItems: "center",
+    gap: 12,
   },
   loaderDot: {
-    width: 15,
-    height: 15,
-    borderRadius: 7.5,
-  },
-  loaderText: {
-    fontSize: 18,
-    fontWeight: "600",
-    marginTop: 10,
-  },
-  loaderSubtext: {
-    fontSize: 14,
-    marginTop: 4,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
   },
   errorContainer: {
     alignItems: "center",
