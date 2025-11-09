@@ -1,3 +1,4 @@
+// app/(tabs)/profile.tsx - FIXED VERSION
 import { useUser, useClerk } from "@clerk/clerk-expo";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
@@ -68,9 +69,11 @@ export default function ProfileScreen() {
   const [signingOut, setSigningOut] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
-  const convexUser = useQuery(api.users.getCurrentUser, {
-    clerkId: user?.id || "",
-  });
+  // ✅ Fixed: Use "skip" when user is not loaded yet
+  const convexUser = useQuery(
+    api.users.getCurrentUser,
+    user ? { clerkId: user.id } : "skip"
+  );
   const updateUser = useMutation(api.users.store);
   const generateUploadUrl = useMutation(api.files.generateUploadUrl);
 
@@ -95,6 +98,7 @@ export default function ProfileScreen() {
     }
   };
 
+  // ✅ Fixed: Store only storageId, not full URL
   const pickAvatar = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -103,10 +107,11 @@ export default function ProfileScreen() {
       quality: 0.8,
     });
 
-    if (!result.canceled && convexUser) {
+    if (!result.canceled && convexUser && user) {
       setUploadingAvatar(true);
       try {
         const uploadUrl = await generateUploadUrl();
+        
         const response = await fetch(result.assets[0].uri);
         const blob = await response.blob();
 
@@ -117,14 +122,16 @@ export default function ProfileScreen() {
         });
 
         const { storageId } = await uploadResponse.json();
-        const avatarUrl = `${process.env.EXPO_PUBLIC_CONVEX_URL}/api/storage/${storageId}`;
 
+        // ✅ Store ONLY the storageId, not a full URL
         await updateUser({
-          clerkId: user?.id || "",
+          clerkId: user.id,
           name: convexUser.name,
           email: convexUser.email,
-          avatar: avatarUrl,
+          avatar: storageId,
         });
+
+        console.log("Avatar uploaded successfully:", storageId);
       } catch (error) {
         console.error("Error uploading avatar:", error);
       } finally {
@@ -141,16 +148,19 @@ export default function ProfileScreen() {
     );
   }
 
+  const gradientColors: [string, string] = [colors.gradient1, colors.gradient2];
+  const avatarGradientColors: [string, string] = [colors.primary, colors.secondary];
+
   const ListHeader = () => (
     <FadeInView style={styles.header}>
       <LinearGradient
-        colors={[colors.gradient1, colors.gradient2]}
+        colors={gradientColors}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.headerGradient}
       >
         <View style={styles.profileSection}>
-          <BouncyButton onPress={pickAvatar} style={{}}>
+          <BouncyButton onPress={pickAvatar}>
             <View style={styles.avatarWrapper}>
               {convexUser?.avatar ? (
                 <Image
@@ -159,7 +169,7 @@ export default function ProfileScreen() {
                 />
               ) : (
                 <LinearGradient
-                  colors={[colors.primary, colors.secondary]}
+                  colors={avatarGradientColors}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={[styles.profileImage, styles.profileImagePlaceholder]}
@@ -190,10 +200,10 @@ export default function ProfileScreen() {
             </View>
           </View>
 
-          <BouncyButton onPress={() => setShowModal(true)} style={{}}>
+          <BouncyButton onPress={() => setShowModal(true)}>
             <View style={[styles.signOutButton, { borderColor: "#FF4757" }]}>
               <Ionicons name="log-out-outline" size={20} color="#FF4757" />
-              <Text style={[styles.signOutText, { color: "#FF4757"}]}>Sign Out</Text>
+              <Text style={[styles.signOutText, { color: "#FF4757" }]}>Sign Out</Text>
             </View>
           </BouncyButton>
         </View>
@@ -265,6 +275,7 @@ function SignOutModal({
   loading: boolean;
 }) {
   const { colors } = useTheme();
+  const errorGradientColors: [string, string] = [colors.error, "#FF4757"];
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -279,22 +290,26 @@ function SignOutModal({
           </FadeInView>
 
           <View style={styles.modalActions}>
-            <BouncyButton onPress={onClose} disabled={loading} style={{ flex: 1 }}>
-              <View style={[styles.modalButton, styles.cancelButton, { backgroundColor: colors.surface }]}>
-                <Text style={[styles.cancelButtonText, { color: colors.text }]}>Cancel</Text>
-              </View>
-            </BouncyButton>
+            <View style={styles.modalButtonWrapper}>
+              <BouncyButton onPress={onClose} disabled={loading}>
+                <View style={[styles.modalButton, styles.cancelButton, { backgroundColor: colors.surface }]}>
+                  <Text style={[styles.cancelButtonText, { color: colors.text }]}>Cancel</Text>
+                </View>
+              </BouncyButton>
+            </View>
 
-            <BouncyButton onPress={onConfirm} disabled={loading} style={{ flex: 1 }}>
-              <LinearGradient
-                colors={[colors.error, "#FF4757"]}
-                style={[styles.modalButton, styles.confirmButton, loading && styles.buttonDisabled]}
-              >
-                <Text style={styles.confirmButtonText}>
-                  {loading ? "Signing out..." : "Sign Out"}
-                </Text>
-              </LinearGradient>
-            </BouncyButton>
+            <View style={styles.modalButtonWrapper}>
+              <BouncyButton onPress={onConfirm} disabled={loading}>
+                <LinearGradient
+                  colors={errorGradientColors}
+                  style={[styles.modalButton, styles.confirmButton, loading && styles.buttonDisabled]}
+                >
+                  <Text style={styles.confirmButtonText}>
+                    {loading ? "Signing out..." : "Sign Out"}
+                  </Text>
+                </LinearGradient>
+              </BouncyButton>
+            </View>
           </View>
         </Pressable>
       </Pressable>
@@ -396,7 +411,6 @@ const styles = StyleSheet.create({
   signOutButton: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
     paddingVertical: 12,
     paddingHorizontal: 24,
     backgroundColor: "rgba(255,255,255,0.2)",
@@ -406,36 +420,46 @@ const styles = StyleSheet.create({
   signOutText: {
     fontSize: 16,
     fontWeight: "600",
+    marginLeft: 8,
   },
   postsHeader: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
     padding: 16,
   },
   postsTitle: {
     fontSize: 18,
     fontWeight: "bold",
+    marginLeft: 8,
   },
   postCard: {
     marginHorizontal: 12,
     marginVertical: 6,
     borderRadius: 16,
     padding: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 3,
+      },
+      web: {
+        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+      },
+    }),
   },
   postHeader: {
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 10,
-    gap: 4,
   },
   timestamp: {
     fontSize: 12,
+    marginLeft: 4,
   },
   postContent: {
     fontSize: 15,
@@ -479,11 +503,20 @@ const styles = StyleSheet.create({
     padding: 24,
     width: "85%",
     maxWidth: 400,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 8,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.3,
+        shadowRadius: 16,
+      },
+      android: {
+        elevation: 8,
+      },
+      web: {
+        boxShadow: '0 8px 16px rgba(0,0,0,0.3)',
+      },
+    }),
   },
   modalHeader: {
     alignItems: "center",
@@ -504,7 +537,10 @@ const styles = StyleSheet.create({
   },
   modalActions: {
     flexDirection: "row",
-    gap: 12,
+  },
+  modalButtonWrapper: {
+    flex: 1,
+    marginHorizontal: 6,
   },
   modalButton: {
     padding: 16,

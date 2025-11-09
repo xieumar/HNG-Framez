@@ -9,12 +9,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
-  ScrollView,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useTheme } from "../../context/ThemeContext";
 import { BouncyButton, FadeInView } from "../../components/Animated";
 import { Ionicons } from "@expo/vector-icons";
+import { Image } from "react-native";
+import logo from "../../assets/images/icon.png"; 
 
 export default function SignInScreen() {
   const { signIn, setActive, isLoaded } = useSignIn();
@@ -49,73 +50,64 @@ export default function SignInScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={[styles.container, { backgroundColor: colors.background }]}
     >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <LinearGradient
-          colors={[colors.gradient2, colors.gradient1]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.gradient}
-        />
+      <View style={styles.content}>
+        <FadeInView delay={0}>
+          <View style={styles.logoContainer}>
+            <Image source={logo} style={styles.logoImage} resizeMode="contain" />
+            <Text style={styles.title}>Framez</Text>
+            <Text style={styles.subtitle}>Share your moments</Text>
+          </View>
+        </FadeInView>
 
-        <View style={styles.content}>
-          <FadeInView delay={0}>
-            <View style={styles.logoContainer}>
-              <Text style={styles.logo}>📸</Text>
-              <Text style={styles.title}>Welcome Back</Text>
-              <Text style={styles.subtitle}>Sign in to continue your journey</Text>
-            </View>
-          </FadeInView>
+        <FadeInView delay={200} style={styles.form}>
+          <View style={[styles.inputContainer, { backgroundColor: colors.surface }]}>
+            <Ionicons name="mail-outline" size={20} color={colors.textSecondary} />
+            <TextInput
+              style={[styles.input, { color: colors.text }]}
+              placeholder="Email"
+              placeholderTextColor={colors.textSecondary}
+              value={emailAddress}
+              onChangeText={setEmailAddress}
+              autoCapitalize="none"
+              keyboardType="email-address"
+            />
+          </View>
 
-          <FadeInView delay={200} style={styles.form}>
-            <View style={[styles.inputContainer, { backgroundColor: colors.surface }]}>
-              <Ionicons name="mail-outline" size={20} color={colors.textSecondary} />
-              <TextInput
-                style={[styles.input, { color: colors.text }]}
-                placeholder="Email"
-                placeholderTextColor={colors.textSecondary}
-                value={emailAddress}
-                onChangeText={setEmailAddress}
-                autoCapitalize="none"
-                keyboardType="email-address"
-              />
-            </View>
+          <View style={[styles.inputContainer, { backgroundColor: colors.surface }]}>
+            <Ionicons name="lock-closed-outline" size={20} color={colors.textSecondary} />
+            <TextInput
+              style={[styles.input, { color: colors.text }]}
+              placeholder="Password"
+              placeholderTextColor={colors.textSecondary}
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+            />
+          </View>
 
-            <View style={[styles.inputContainer, { backgroundColor: colors.surface }]}>
-              <Ionicons name="lock-closed-outline" size={20} color={colors.textSecondary} />
-              <TextInput
-                style={[styles.input, { color: colors.text }]}
-                placeholder="Password"
-                placeholderTextColor={colors.textSecondary}
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-              />
-            </View>
-
-            <BouncyButton onPress={onSignInPress} disabled={loading}>
-              <LinearGradient
-                colors={[colors.secondary, colors.primary]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={[styles.button, loading && styles.buttonDisabled]}
-              >
-                <Text style={styles.buttonText}>
-                  {loading ? "Signing in... ✨" : "Sign In 🚀"}
-                </Text>
-              </LinearGradient>
-            </BouncyButton>
-
-            <View style={styles.footer}>
-              <Text style={[styles.footerText, { color: colors.text }]}>
-                Don’t have an account?{" "}
+          <BouncyButton onPress={onSignInPress} disabled={loading} style={{}}>
+            <LinearGradient
+              colors={[colors.primary, colors.secondary]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={[styles.button, loading && styles.buttonDisabled]}
+            >
+              <Text style={styles.buttonText}>
+                {loading ? "Signing in... ✨" : "Sign In 🚀"}
               </Text>
-              <Link href="/(auth)/sign-up" asChild>
-                <Text style={[styles.link, { color: colors.primary }]}>Sign Up</Text>
-              </Link>
-            </View>
-          </FadeInView>
-        </View>
-      </ScrollView>
+            </LinearGradient>
+          </BouncyButton>
+
+          <View style={styles.footer}>
+            <Text style={[styles.footerText, { color: colors.text }]}>
+              Don't have an account?{" "}
+            </Text>
+            <Link href="/(auth)/sign-up">
+              <Text style={[styles.link, { color: colors.primary }]}>Sign Up</Text>
+            </Link>
+          </View>
+        </FadeInView>
+      </View>
     </KeyboardAvoidingView>
   );
 }
@@ -123,9 +115,6 @@ export default function SignInScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
   },
   gradient: {
     flex: 1,
@@ -145,14 +134,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 48,
   },
-  logo: {
-    fontSize: 80,
-    marginBottom: 8,
-  },
+  logoImage: {
+  width: 100,
+  height: 100,
+  marginBottom: 4,
+},
+
+
   title: {
-    fontSize: 40,
+    fontSize: 48,
     fontWeight: "bold",
-    marginBottom: 8,
+    marginBottom: 4,
   },
   subtitle: {
     fontSize: 16,
@@ -167,11 +159,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
   },
   input: {
     flex: 1,
@@ -182,12 +169,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 18,
     alignItems: "center",
-    marginTop: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 5,
+    marginTop: 10,
   },
   buttonDisabled: {
     opacity: 0.6,

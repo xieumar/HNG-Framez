@@ -12,9 +12,9 @@ export default defineSchema({
   posts: defineTable({
     userId: v.id("users"),
     content: v.string(),
-    imageUrl: v.optional(v.string()),
+    imageStorageId: v.optional(v.string()),
     createdAt: v.number(),
   })
     .index("by_user", ["userId"])
-    .index("by_created_at", ["createdAt"]), // Changed from "by_creation_time"
+    .index("by_created_at", ["createdAt"]),
 });

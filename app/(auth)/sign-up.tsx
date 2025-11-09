@@ -195,7 +195,7 @@ export default function SignUpScreen() {
               <Text style={[styles.footerText, { color: colors.text }]}>
                 Already have an account?{" "}
               </Text>
-              <Link href="/(auth)/sign-in" asChild>
+              <Link href="/(auth)/sign-in">
                 <Text style={[styles.link, { color: colors.primary }]}>Sign In</Text>
               </Link>
             </View>

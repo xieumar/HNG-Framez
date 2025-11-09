@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  ActivityIndicator,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { useMutation, useQuery } from "convex/react";
@@ -24,9 +25,13 @@ export default function CreateScreen() {
   const { user } = useUser();
   const router = useRouter();
   const { colors } = useTheme();
-  const convexUser = useQuery(api.users.getCurrentUser, {
-    clerkId: user?.id || "",
-  });
+
+  // ✅ Fixed: Use "skip" instead of undefined to prevent conditional hook calls
+  const convexUser = useQuery(
+    api.users.getCurrentUser, 
+    user ? { clerkId: user.id } : "skip"
+  );
+
   const createPost = useMutation(api.posts.create);
   const generateUploadUrl = useMutation(api.files.generateUploadUrl);
 
@@ -75,23 +80,22 @@ export default function CreateScreen() {
     }
 
     if (!convexUser) {
-      Alert.alert("Oops! 😅", "User not found");
+      Alert.alert("Oops! 😅", "User not found or still loading");
       return;
     }
 
     setLoading(true);
     try {
-      let imageUrl = undefined;
+      let imageStorageId: string | undefined;
 
       if (image) {
-        const storageId = await uploadImage(image);
-        imageUrl = `${process.env.EXPO_PUBLIC_CONVEX_URL}/api/storage/${storageId}`;
+        imageStorageId = await uploadImage(image);
       }
 
       await createPost({
         userId: convexUser._id,
         content: content.trim(),
-        imageUrl,
+        imageStorageId,
       });
 
       Alert.alert("Success! 🎉", "Your post is live!");
@@ -99,12 +103,20 @@ export default function CreateScreen() {
       setImage(null);
       router.push("/(tabs)/feed");
     } catch (error) {
-      Alert.alert("Oops! 😅", "Failed to create post. Try again!");
       console.error(error);
+      Alert.alert("Oops! 😅", "Failed to create post. Try again!");
     } finally {
       setLoading(false);
     }
   };
+
+  if (!convexUser) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
@@ -127,7 +139,7 @@ export default function CreateScreen() {
 
           <View style={[styles.card, { backgroundColor: colors.card }]}>
             <TextInput
-              style={[styles.textInput, { 
+              style={[styles.textInput, {
                 backgroundColor: colors.surface,
                 color: colors.text,
                 borderColor: colors.border,
@@ -162,7 +174,7 @@ export default function CreateScreen() {
           )}
 
           <BouncyButton onPress={pickImage} style={{}}>
-            <View style={[styles.imageButton, { 
+            <View style={[styles.imageButton, {
               backgroundColor: colors.surface,
               borderColor: colors.primary,
             }]}>
@@ -197,122 +209,23 @@ export default function CreateScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  content: {
-    padding: 16,
-  },
-  header: {
-    marginBottom: 20,
-    borderRadius: 20,
-    overflow: "hidden",
-  },
-  headerGradient: {
-    padding: 24,
-    alignItems: "center",
-  },
-  headerEmoji: {
-    fontSize: 48,
-    marginBottom: 8,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#fff",
-  },
-  card: {
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  textInput: {
-    fontSize: 16,
-    minHeight: 150,
-    textAlignVertical: "top",
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 2,
-  },
-  characterCount: {
-    textAlign: "right",
-    fontSize: 12,
-    marginTop: 8,
-  },
-  imageCard: {
-    borderRadius: 16,
-    padding: 8,
-    marginBottom: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  selectedImage: {
-    width: "100%",
-    height: 300,
-    borderRadius: 12,
-  },
-  removeImageButton: {
-    position: "absolute",
-    top: 16,
-    right: 16,
-  },
-  removeButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  imageButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 18,
-    borderRadius: 16,
-    marginBottom: 16,
-    borderWidth: 2,
-    borderStyle: "dashed",
-    gap: 12,
-  },
-  imageButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  postButton: {
-    flexDirection: "row",
-    padding: 18,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  postButtonDisabled: {
-    opacity: 0.6,
-  },
-  postButtonText: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "bold",
-  },
+  container: { flex: 1 },
+  scrollView: { flex: 1 },
+  content: { padding: 16 },
+  header: { marginBottom: 20, borderRadius: 20, overflow: "hidden" },
+  headerGradient: { padding: 24, alignItems: "center" },
+  headerEmoji: { fontSize: 48, marginBottom: 8 },
+  headerTitle: { fontSize: 20, fontWeight: "bold", color: "#fff" },
+  card: { borderRadius: 16, padding: 16, marginBottom: 16, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 3 },
+  textInput: { fontSize: 16, minHeight: 150, textAlignVertical: "top", padding: 16, borderRadius: 12, borderWidth: 2 },
+  characterCount: { textAlign: "right", fontSize: 12, marginTop: 8 },
+  imageCard: { borderRadius: 16, padding: 8, marginBottom: 16, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 3 },
+  selectedImage: { width: "100%", height: 300, borderRadius: 12 },
+  removeImageButton: { position: "absolute", top: 16, right: 16 },
+  removeButton: { width: 36, height: 36, borderRadius: 18, justifyContent: "center", alignItems: "center", shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 5 },
+  imageButton: { flexDirection: "row", alignItems: "center", justifyContent: "center", padding: 18, borderRadius: 16, marginBottom: 16, borderWidth: 2, borderStyle: "dashed", gap: 12 },
+  imageButtonText: { fontSize: 16, fontWeight: "600" },
+  postButton: { flexDirection: "row", padding: 18, borderRadius: 16, alignItems: "center", justifyContent: "center", gap: 12, shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 5 },
+  postButtonDisabled: { opacity: 0.6 },
+  postButtonText: { color: "#fff", fontSize: 18, fontWeight: "bold" },
 });
