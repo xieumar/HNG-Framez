@@ -6,13 +6,13 @@ export default defineSchema({
     clerkId: v.string(),
     name: v.string(),
     email: v.string(),
-    avatar: v.optional(v.string()),
+    avatar: v.optional(v.id("_storage")), 
   }).index("by_clerk_id", ["clerkId"]),
 
   posts: defineTable({
     userId: v.id("users"),
     content: v.string(),
-    imageStorageId: v.optional(v.string()),
+    imageStorageId: v.optional(v.id("_storage")), 
     createdAt: v.number(),
   })
     .index("by_user", ["userId"])

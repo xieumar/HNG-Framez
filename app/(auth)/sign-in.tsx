@@ -8,14 +8,14 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  Alert,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useTheme } from "../../context/ThemeContext";
 import { BouncyButton, FadeInView } from "../../components/Animated";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "react-native";
-import logo from "../../assets/images/icon.png"; 
+import logo from "../../assets/images/icon.png";
+import Toast from "react-native-toast-message";
 
 export default function SignInScreen() {
   const { signIn, setActive, isLoaded } = useSignIn();
@@ -37,13 +37,30 @@ export default function SignInScreen() {
       });
 
       await setActive({ session: completeSignIn.createdSessionId });
+
+      Toast.show({
+        type: "success",
+        text1: "Welcome back! 🎉",
+        text2: "You're now signed in.",
+        position: "top",
+        topOffset: 60,
+      });
+
       router.replace("/(tabs)/feed");
     } catch (err: any) {
-      Alert.alert("Oops! 😅", err.errors?.[0]?.message || "Sign in failed");
+      Toast.show({
+        type: "error",
+        text1: "Sign in failed 😅",
+        text2: err.errors?.[0]?.message || "Please check your credentials.",
+        position: "top",
+        topOffset: 60,
+      });
     } finally {
       setLoading(false);
     }
   };
+
+  const gradientColors: [string, string] = [colors.primary, colors.secondary];
 
   return (
     <KeyboardAvoidingView
@@ -54,57 +71,83 @@ export default function SignInScreen() {
         <FadeInView delay={0}>
           <View style={styles.logoContainer}>
             <Image source={logo} style={styles.logoImage} resizeMode="contain" />
-            <Text style={styles.title}>Framez</Text>
-            <Text style={styles.subtitle}>Share your moments</Text>
+            <Text style={[styles.title, { color: colors.text }]}>Framez</Text>
+            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+              Share your moments
+            </Text>
           </View>
         </FadeInView>
 
-        <FadeInView delay={200} style={styles.form}>
-          <View style={[styles.inputContainer, { backgroundColor: colors.surface }]}>
-            <Ionicons name="mail-outline" size={20} color={colors.textSecondary} />
-            <TextInput
-              style={[styles.input, { color: colors.text }]}
-              placeholder="Email"
-              placeholderTextColor={colors.textSecondary}
-              value={emailAddress}
-              onChangeText={setEmailAddress}
-              autoCapitalize="none"
-              keyboardType="email-address"
-            />
-          </View>
-
-          <View style={[styles.inputContainer, { backgroundColor: colors.surface }]}>
-            <Ionicons name="lock-closed-outline" size={20} color={colors.textSecondary} />
-            <TextInput
-              style={[styles.input, { color: colors.text }]}
-              placeholder="Password"
-              placeholderTextColor={colors.textSecondary}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-            />
-          </View>
-
-          <BouncyButton onPress={onSignInPress} disabled={loading} style={{}}>
-            <LinearGradient
-              colors={[colors.primary, colors.secondary]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={[styles.button, loading && styles.buttonDisabled]}
+        <FadeInView delay={200}>
+          <View style={styles.formWrapper}>
+            <View
+              style={[
+                styles.inputContainer,
+                { backgroundColor: colors.surface },
+              ]}
             >
-              <Text style={styles.buttonText}>
-                {loading ? "Signing in... ✨" : "Sign In 🚀"}
-              </Text>
-            </LinearGradient>
-          </BouncyButton>
+              <Ionicons
+                name="mail-outline"
+                size={20}
+                color={colors.textSecondary}
+              />
+              <TextInput
+                style={[styles.input, { color: colors.text }]}
+                placeholder="Email"
+                placeholderTextColor={colors.textSecondary}
+                value={emailAddress}
+                onChangeText={setEmailAddress}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                autoComplete="email"
+              />
+            </View>
 
-          <View style={styles.footer}>
-            <Text style={[styles.footerText, { color: colors.text }]}>
-              Don't have an account?{" "}
-            </Text>
-            <Link href="/(auth)/sign-up">
-              <Text style={[styles.link, { color: colors.primary }]}>Sign Up</Text>
-            </Link>
+            <View
+              style={[
+                styles.inputContainer,
+                { backgroundColor: colors.surface },
+              ]}
+            >
+              <Ionicons
+                name="lock-closed-outline"
+                size={20}
+                color={colors.textSecondary}
+              />
+              <TextInput
+                style={[styles.input, { color: colors.text }]}
+                placeholder="Password"
+                placeholderTextColor={colors.textSecondary}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+                autoComplete="password"
+              />
+            </View>
+
+            <BouncyButton onPress={onSignInPress} disabled={loading}>
+              <LinearGradient
+                colors={gradientColors}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={[styles.button, loading && styles.buttonDisabled]}
+              >
+                <Text style={styles.buttonText}>
+                  {loading ? "Signing in... " : "Sign In "}
+                </Text>
+              </LinearGradient>
+            </BouncyButton>
+
+            <View style={styles.footer}>
+              <Text style={[styles.footerText, { color: colors.text }]}>
+                Don't have an account?{" "}
+              </Text>
+              <Link href="/(auth)/sign-up">
+                <Text style={[styles.link, { color: colors.primary }]}>
+                  Sign Up
+                </Text>
+              </Link>
+            </View>
           </View>
         </FadeInView>
       </View>
@@ -116,15 +159,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  gradient: {
-    flex: 1,
-    opacity: 0.1,
-    position: "absolute",
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
-  },
   content: {
     flex: 1,
     justifyContent: "center",
@@ -135,12 +169,10 @@ const styles = StyleSheet.create({
     marginBottom: 48,
   },
   logoImage: {
-  width: 100,
-  height: 100,
-  marginBottom: 4,
-},
-
-
+    width: 100,
+    height: 100,
+    marginBottom: 4,
+  },
   title: {
     fontSize: 48,
     fontWeight: "bold",
@@ -150,7 +182,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     opacity: 0.7,
   },
-  form: {
+  formWrapper: {
     width: "100%",
   },
   inputContainer: {
@@ -159,6 +191,17 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
   input: {
     flex: 1,

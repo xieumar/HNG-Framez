@@ -7,10 +7,15 @@ export const generateUploadUrl = mutation({
   },
 });
 
-// Changed to QUERY (not mutation)
-export const getFileUrl = query({
+// Query to get file URL from storage ID
+export const getUrl = query({
   args: { storageId: v.string() },
   handler: async (ctx, args) => {
-    return await ctx.storage.getUrl(args.storageId);
+    try {
+      return await ctx.storage.getUrl(args.storageId);
+    } catch (error) {
+      console.error("Error getting URL for storageId:", args.storageId, error);
+      return null;
+    }
   },
 });

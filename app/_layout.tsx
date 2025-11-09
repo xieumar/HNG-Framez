@@ -1,3 +1,4 @@
+// app/_layout.tsx
 import { ClerkProvider, useAuth } from "@clerk/clerk-expo";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
 import { ConvexReactClient } from "convex/react";
@@ -5,7 +6,8 @@ import { Slot } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { ThemeProvider } from "../context/ThemeContext";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { SafeAreaProvider } from "react-native-safe-area-context";
+import Toast from "react-native-toast-message";
+import { toastConfig } from "../config/toastConfig";
 
 const convex = new ConvexReactClient(process.env.EXPO_PUBLIC_CONVEX_URL!, {
   unsavedChangesWarning: false,
@@ -38,6 +40,7 @@ export default function RootLayout() {
         <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
           <ThemeProvider>
             <Slot />
+            <Toast config={toastConfig} />
           </ThemeProvider>
         </ConvexProviderWithClerk>
       </ClerkProvider>

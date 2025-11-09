@@ -1,9 +1,10 @@
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { TouchableOpacity, View, StyleSheet, Platform } from "react-native";
+import { TouchableOpacity, View, StyleSheet, Platform, Image, Text } from "react-native";
 import { useTheme } from "../../context/ThemeContext";
 import { BouncyButton } from "../../components/Animated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import logo from "../../assets/images/icon.png";
 
 export default function TabsLayout() {
   const { colors, isDark, toggleTheme } = useTheme();
@@ -44,13 +45,24 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="feed"
         options={{
-          title: "Feed",
+          headerTitle: () => (
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <Image
+                source={logo}
+                style={{ width: 32, height: 32, marginRight: 8 }}
+                resizeMode="contain"
+              />
+              <Text style={{ fontSize: 18, fontWeight: "bold", color: colors.text }}>
+                Framez
+              </Text>
+            </View>
+          ),
           tabBarIcon: ({ color, size, focused }) => (
             <View style={focused && styles.activeTab}>
-              <Ionicons 
-                name={focused ? "home" : "home-outline"} 
-                size={size} 
-                color={color} 
+              <Ionicons
+                name={focused ? "home" : "home-outline"}
+                size={size}
+                color={color}
               />
             </View>
           ),
@@ -74,15 +86,15 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size, focused }) => (
             <View style={[
               styles.createButton,
-              { 
+              {
                 backgroundColor: focused ? colors.primary : colors.surface,
                 borderColor: colors.primary,
               }
             ]}>
-              <Ionicons 
-                name="add" 
-                size={size + 4} 
-                color={focused ? "#fff" : color} 
+              <Ionicons
+                name="add"
+                size={size + 2}
+                color={focused ? "#fff" : color}
               />
             </View>
           ),
@@ -94,10 +106,10 @@ export default function TabsLayout() {
           title: "Profile",
           tabBarIcon: ({ color, size, focused }) => (
             <View style={focused && styles.activeTab}>
-              <Ionicons 
-                name={focused ? "person" : "person-outline"} 
-                size={size} 
-                color={color} 
+              <Ionicons
+                name={focused ? "person" : "person-outline"}
+                size={size}
+                color={color}
               />
             </View>
           ),
@@ -122,6 +134,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 3,
-    marginTop: -10,
+    marginTop: -20,
   },
 });

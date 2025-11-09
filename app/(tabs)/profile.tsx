@@ -2,6 +2,8 @@
 import { useUser, useClerk } from "@clerk/clerk-expo";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
+import { useRouter } from "expo-router";
+
 import {
   View,
   Text,
@@ -81,15 +83,18 @@ export default function ProfileScreen() {
     api.posts.getUserPosts,
     convexUser ? { userId: convexUser._id } : "skip"
   );
-
+  const router = useRouter();
   const handleSignOut = async () => {
     setSigningOut(true);
     try {
       await signOut();
       setShowModal(false);
-      
+
+      // ✅ Works on web, iOS, and Android
       if (Platform.OS === "web") {
-        window.location.href = "/";
+        window.location.href = "/(auth)/sign-in";
+      } else {
+        router.replace("/(auth)/sign-in");
       }
     } catch (error) {
       console.error("Sign out error:", error);
@@ -97,6 +102,7 @@ export default function ProfileScreen() {
       setShowModal(false);
     }
   };
+
 
   // ✅ Fixed: Store only storageId, not full URL
   const pickAvatar = async () => {
@@ -111,7 +117,7 @@ export default function ProfileScreen() {
       setUploadingAvatar(true);
       try {
         const uploadUrl = await generateUploadUrl();
-        
+
         const response = await fetch(result.assets[0].uri);
         const blob = await response.blob();
 
@@ -233,7 +239,7 @@ export default function ProfileScreen() {
             </View>
           }
         />
-        <SignOutModal 
+        <SignOutModal
           visible={showModal}
           onClose={() => setShowModal(false)}
           onConfirm={handleSignOut}
@@ -253,7 +259,7 @@ export default function ProfileScreen() {
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
       />
-      <SignOutModal 
+      <SignOutModal
         visible={showModal}
         onClose={() => setShowModal(false)}
         onConfirm={handleSignOut}
@@ -263,15 +269,15 @@ export default function ProfileScreen() {
   );
 }
 
-function SignOutModal({ 
-  visible, 
-  onClose, 
-  onConfirm, 
-  loading 
-}: { 
-  visible: boolean; 
-  onClose: () => void; 
-  onConfirm: () => void; 
+function SignOutModal({
+  visible,
+  onClose,
+  onConfirm,
+  loading
+}: {
+  visible: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
   loading: boolean;
 }) {
   const { colors } = useTheme();

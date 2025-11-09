@@ -13,8 +13,8 @@ interface ThemeContextType {
 }
 
 const lightColors = {
-  primary: "#9BCDCD", // Soft mint
-  secondary: "#C8B6E2", // Lavender
+  primary: "#a78dccff", // Lavender
+  secondary: "#9BCDCD", // Soft mint
   accent: "#FFD6E0", // Pastel pink
   background: "#F8FAFA",
   surface: "#FFFFFF",

@@ -5,7 +5,6 @@ import {
   TextInput,
   StyleSheet,
   Image,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -20,15 +19,15 @@ import { useRouter } from "expo-router";
 import { useTheme } from "../../context/ThemeContext";
 import { BouncyButton, FadeInView } from "../../components/Animated";
 import { LinearGradient } from "expo-linear-gradient";
+import Toast from "react-native-toast-message";
 
 export default function CreateScreen() {
   const { user } = useUser();
   const router = useRouter();
   const { colors } = useTheme();
 
-  // ✅ Fixed: Use "skip" instead of undefined to prevent conditional hook calls
   const convexUser = useQuery(
-    api.users.getCurrentUser, 
+    api.users.getCurrentUser,
     user ? { clerkId: user.id } : "skip"
   );
 
@@ -49,38 +48,51 @@ export default function CreateScreen() {
 
     if (!result.canceled) {
       setImage(result.assets[0].uri);
+      Toast.show({
+        type: "info",
+        text1: "Photo selected",
+        text2: "Ready to post?",
+        position: "top",
+        topOffset: 60,
+      });
     }
   };
 
   const uploadImage = async (uri: string) => {
-    try {
-      const uploadUrl = await generateUploadUrl();
+    const uploadUrl = await generateUploadUrl();
+    const response = await fetch(uri);
+    const blob = await response.blob();
 
-      const response = await fetch(uri);
-      const blob = await response.blob();
+    const uploadResponse = await fetch(uploadUrl, {
+      method: "POST",
+      headers: { "Content-Type": blob.type },
+      body: blob,
+    });
 
-      const uploadResponse = await fetch(uploadUrl, {
-        method: "POST",
-        headers: { "Content-Type": blob.type },
-        body: blob,
-      });
-
-      const { storageId } = await uploadResponse.json();
-      return storageId;
-    } catch (error) {
-      console.error("Error uploading image:", error);
-      throw error;
-    }
+    const { storageId } = await uploadResponse.json();
+    return storageId;
   };
 
   const handlePost = async () => {
     if (!content.trim() && !image) {
-      Alert.alert("Oops! 😅", "Please add some content or an image");
+      Toast.show({
+        type: "info",
+        text1: "Nothing to post?",
+        text2: "Please add text or a photo first!",
+        position: "top",
+        topOffset: 60,
+      });
       return;
     }
 
     if (!convexUser) {
-      Alert.alert("Oops! 😅", "User not found or still loading");
+      Toast.show({
+        type: "error",
+        text1: "User not found!",
+        text2: "Please wait a moment or sign in again",
+        position: "top",
+        topOffset: 60,
+      });
       return;
     }
 
@@ -98,13 +110,26 @@ export default function CreateScreen() {
         imageStorageId,
       });
 
-      Alert.alert("Success! 🎉", "Your post is live!");
+      Toast.show({
+        type: "success",
+        text1: "Post shared! ",
+        text2: "Your creativity is live",
+        position: "top",
+        topOffset: 60,
+      });
+
       setContent("");
       setImage(null);
       router.push("/(tabs)/feed");
     } catch (error) {
       console.error(error);
-      Alert.alert("Oops! 😅", "Failed to create post. Try again!");
+      Toast.show({
+        type: "error",
+        text1: "Failed to post",
+        text2: "Something went wrong. Please try again!",
+        position: "top",
+        topOffset: 60,
+      });
     } finally {
       setLoading(false);
     }
@@ -139,12 +164,15 @@ export default function CreateScreen() {
 
           <View style={[styles.card, { backgroundColor: colors.card }]}>
             <TextInput
-              style={[styles.textInput, {
-                backgroundColor: colors.surface,
-                color: colors.text,
-                borderColor: colors.border,
-              }]}
-              placeholder="What's on your mind? Share your thoughts... 💭"
+              style={[
+                styles.textInput,
+                {
+                  backgroundColor: colors.surface,
+                  color: colors.text,
+                  borderColor: colors.border,
+                },
+              ]}
+              placeholder="What's on your mind? Share your thoughts... "
               placeholderTextColor={colors.textSecondary}
               multiline
               value={content}
@@ -159,10 +187,7 @@ export default function CreateScreen() {
           {image && (
             <FadeInView style={[styles.imageCard, { backgroundColor: colors.card }]}>
               <Image source={{ uri: image }} style={styles.selectedImage} />
-              <BouncyButton
-                onPress={() => setImage(null)}
-                style={styles.removeImageButton}
-              >
+              <BouncyButton onPress={() => setImage(null)} style={styles.removeImageButton}>
                 <LinearGradient
                   colors={[colors.error, "#FF4757"]}
                   style={styles.removeButton}
@@ -173,23 +198,24 @@ export default function CreateScreen() {
             </FadeInView>
           )}
 
-          <BouncyButton onPress={pickImage} style={{}}>
-            <View style={[styles.imageButton, {
-              backgroundColor: colors.surface,
-              borderColor: colors.primary,
-            }]}>
+          <BouncyButton onPress={pickImage}>
+            <View
+              style={[
+                styles.imageButton,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.primary,
+                },
+              ]}
+            >
               <Ionicons name="image" size={28} color={colors.primary} />
               <Text style={[styles.imageButtonText, { color: colors.text }]}>
-                {image ? "Change Photo 📸" : "Add Photo 📸"}
+                {image ? "Change Photo " : "Add Photo "}
               </Text>
             </View>
           </BouncyButton>
 
-          <BouncyButton
-            onPress={handlePost}
-            disabled={loading}
-            style={{}}
-          >
+          <BouncyButton onPress={handlePost} disabled={loading}>
             <LinearGradient
               colors={[colors.primary, colors.secondary]}
               start={{ x: 0, y: 0 }}
@@ -198,7 +224,7 @@ export default function CreateScreen() {
             >
               <Ionicons name="rocket" size={24} color="#fff" />
               <Text style={styles.postButtonText}>
-                {loading ? "Posting... ✨" : "Share with World 🚀"}
+                {loading ? "Posting... " : "Share with World "}
               </Text>
             </LinearGradient>
           </BouncyButton>
@@ -216,16 +242,74 @@ const styles = StyleSheet.create({
   headerGradient: { padding: 24, alignItems: "center" },
   headerEmoji: { fontSize: 48, marginBottom: 8 },
   headerTitle: { fontSize: 20, fontWeight: "bold", color: "#fff" },
-  card: { borderRadius: 16, padding: 16, marginBottom: 16, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 3 },
-  textInput: { fontSize: 16, minHeight: 150, textAlignVertical: "top", padding: 16, borderRadius: 12, borderWidth: 2 },
+  card: {
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  textInput: {
+    fontSize: 16,
+    minHeight: 150,
+    textAlignVertical: "top",
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 2,
+  },
   characterCount: { textAlign: "right", fontSize: 12, marginTop: 8 },
-  imageCard: { borderRadius: 16, padding: 8, marginBottom: 16, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 3 },
+  imageCard: {
+    borderRadius: 16,
+    padding: 8,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
   selectedImage: { width: "100%", height: 300, borderRadius: 12 },
   removeImageButton: { position: "absolute", top: 16, right: 16 },
-  removeButton: { width: 36, height: 36, borderRadius: 18, justifyContent: "center", alignItems: "center", shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 5 },
-  imageButton: { flexDirection: "row", alignItems: "center", justifyContent: "center", padding: 18, borderRadius: 16, marginBottom: 16, borderWidth: 2, borderStyle: "dashed", gap: 12 },
+  removeButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  imageButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 18,
+    borderRadius: 16,
+    marginBottom: 16,
+    borderWidth: 2,
+    borderStyle: "dashed",
+    gap: 12,
+  },
   imageButtonText: { fontSize: 16, fontWeight: "600" },
-  postButton: { flexDirection: "row", padding: 18, borderRadius: 16, alignItems: "center", justifyContent: "center", gap: 12, shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 5 },
+  postButton: {
+    flexDirection: "row",
+    padding: 18,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
   postButtonDisabled: { opacity: 0.6 },
   postButtonText: { color: "#fff", fontSize: 18, fontWeight: "bold" },
 });
