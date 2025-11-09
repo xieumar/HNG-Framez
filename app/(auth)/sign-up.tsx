@@ -5,18 +5,23 @@ import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
   Alert,
+  ScrollView,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { useTheme } from "../../context/ThemeContext";
+import { BouncyButton, FadeInView } from "../../components/Animated";
+import { Ionicons } from "@expo/vector-icons";
 import { useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 
 export default function SignUpScreen() {
   const { isLoaded, signUp, setActive } = useSignUp();
   const router = useRouter();
+  const { colors } = useTheme();
   const storeUser = useMutation(api.users.store);
 
   const [name, setName] = useState("");
@@ -40,7 +45,7 @@ export default function SignUpScreen() {
       await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
       setPendingVerification(true);
     } catch (err: any) {
-      Alert.alert("Error", err.errors?.[0]?.message || "Sign up failed");
+      Alert.alert("Oops! 😅", err.errors?.[0]?.message || "Sign up failed");
     } finally {
       setLoading(false);
     }
@@ -58,7 +63,6 @@ export default function SignUpScreen() {
       if (completeSignUp.status === "complete") {
         await setActive({ session: completeSignUp.createdSessionId });
 
-        // Store user in Convex
         await storeUser({
           clerkId: completeSignUp.createdUserId!,
           name: name,
@@ -68,7 +72,7 @@ export default function SignUpScreen() {
         router.replace("/(tabs)/feed");
       }
     } catch (err: any) {
-      Alert.alert("Error", err.errors?.[0]?.message || "Verification failed");
+      Alert.alert("Oops! 😅", err.errors?.[0]?.message || "Verification failed");
     } finally {
       setLoading(false);
     }
@@ -77,91 +81,127 @@ export default function SignUpScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={styles.container}
+      style={[styles.container, { backgroundColor: colors.background }]}
     >
-      <View style={styles.content}>
-        <Text style={styles.title}>Framez</Text>
-        <Text style={styles.subtitle}>
-          {pendingVerification ? "Verify your email" : "Create an account"}
-        </Text>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <LinearGradient
+          colors={[colors.gradient2, colors.gradient1]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.gradient}
+        />
 
-        <View style={styles.form}>
-          {!pendingVerification ? (
-            <>
-              <TextInput
-                style={styles.input}
-                placeholder="Name"
-                value={name}
-                onChangeText={setName}
-                placeholderTextColor="#999"
-              />
-
-              <TextInput
-                style={styles.input}
-                placeholder="Email"
-                value={emailAddress}
-                onChangeText={setEmailAddress}
-                autoCapitalize="none"
-                keyboardType="email-address"
-                placeholderTextColor="#999"
-              />
-
-              <TextInput
-                style={styles.input}
-                placeholder="Password"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-                placeholderTextColor="#999"
-              />
-
-              <TouchableOpacity
-                style={[styles.button, loading && styles.buttonDisabled]}
-                onPress={onSignUpPress}
-                disabled={loading}
-              >
-                <Text style={styles.buttonText}>
-                  {loading ? "Creating account..." : "Sign Up"}
-                </Text>
-              </TouchableOpacity>
-            </>
-          ) : (
-            <>
-              <Text style={styles.verificationText}>
-                Enter the verification code sent to {emailAddress}
+        <View style={styles.content}>
+          <FadeInView delay={0}>
+            <View style={styles.logoContainer}>
+              <Text style={styles.logo}>🎉</Text>
+              <Text style={styles.title}>
+                {pendingVerification ? "Check Email" : "Join Framez"}
               </Text>
+              <Text style={styles.subtitle}>
+                {pendingVerification
+                  ? "Enter the code we sent you"
+                  : "Start sharing your moments"}
+              </Text>
+            </View>
+          </FadeInView>
 
-              <TextInput
-                style={styles.input}
-                placeholder="Verification Code"
-                value={code}
-                onChangeText={setCode}
-                keyboardType="number-pad"
-                placeholderTextColor="#999"
-              />
+          <FadeInView delay={200} style={styles.form}>
+            {!pendingVerification ? (
+              <>
+                <View style={[styles.inputContainer, { backgroundColor: colors.surface }]}>
+                  <Ionicons name="person-outline" size={20} color={colors.textSecondary} />
+                  <TextInput
+                    style={[styles.input, { color: colors.text }]}
+                    placeholder="Name"
+                    placeholderTextColor={colors.textSecondary}
+                    value={name}
+                    onChangeText={setName}
+                  />
+                </View>
 
-              <TouchableOpacity
-                style={[styles.button, loading && styles.buttonDisabled]}
-                onPress={onVerifyPress}
-                disabled={loading}
-              >
-                <Text style={styles.buttonText}>
-                  {loading ? "Verifying..." : "Verify Email"}
+                <View style={[styles.inputContainer, { backgroundColor: colors.surface }]}>
+                  <Ionicons name="mail-outline" size={20} color={colors.textSecondary} />
+                  <TextInput
+                    style={[styles.input, { color: colors.text }]}
+                    placeholder="Email"
+                    placeholderTextColor={colors.textSecondary}
+                    value={emailAddress}
+                    onChangeText={setEmailAddress}
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                  />
+                </View>
+
+                <View style={[styles.inputContainer, { backgroundColor: colors.surface }]}>
+                  <Ionicons name="lock-closed-outline" size={20} color={colors.textSecondary} />
+                  <TextInput
+                    style={[styles.input, { color: colors.text }]}
+                    placeholder="Password"
+                    placeholderTextColor={colors.textSecondary}
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry
+                  />
+                </View>
+
+                <BouncyButton onPress={onSignUpPress} disabled={loading} style={{}}>
+                  <LinearGradient
+                    colors={[colors.secondary, colors.primary]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={[styles.button, loading && styles.buttonDisabled]}
+                  >
+                    <Text style={styles.buttonText}>
+                      {loading ? "Creating... ✨" : "Create Account 🎨"}
+                    </Text>
+                  </LinearGradient>
+                </BouncyButton>
+              </>
+            ) : (
+              <>
+                <Text style={[styles.verificationText, { color: colors.textSecondary }]}>
+                  We sent a code to {emailAddress} 📧
                 </Text>
-              </TouchableOpacity>
-            </>
-          )}
 
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>Already have an account? </Text>
-            <Link href="/(auth)/sign-in" asChild>
-              <TouchableOpacity>
-                <Text style={styles.link}>Sign In</Text>
-              </TouchableOpacity>
-            </Link>
-          </View>
+                <View style={[styles.inputContainer, { backgroundColor: colors.surface }]}>
+                  <Ionicons name="key-outline" size={20} color={colors.textSecondary} />
+                  <TextInput
+                    style={[styles.input, { color: colors.text }]}
+                    placeholder="Verification Code"
+                    placeholderTextColor={colors.textSecondary}
+                    value={code}
+                    onChangeText={setCode}
+                    keyboardType="number-pad"
+                  />
+                </View>
+
+                <BouncyButton onPress={onVerifyPress} disabled={loading} style={{}}>
+                  <LinearGradient
+                    colors={[colors.secondary, colors.primary]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={[styles.button, loading && styles.buttonDisabled]}
+                  >
+                    <Text style={styles.buttonText}>
+                      {loading ? "Verifying... ✨" : "Verify & Start 🚀"}
+                    </Text>
+                  </LinearGradient>
+                </BouncyButton>
+              </>
+            )}
+
+            <View style={styles.footer}>
+              <Text style={[styles.footerText, { color: colors.text }]}>
+                Already have an account?{" "}
+              </Text>
+              <Link href="/(auth)/sign-in" asChild>
+                <Text style={[styles.link, { color: colors.primary }]}>Sign In</Text>
+              </Link>
+            </View>
+          </FadeInView>
         </View>
-      </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
@@ -169,70 +209,94 @@ export default function SignUpScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+  },
+  scrollContent: {
+    flexGrow: 1,
+  },
+  gradient: {
+    flex: 1,
+    opacity: 0.1,
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
   },
   content: {
     flex: 1,
     justifyContent: "center",
-    padding: 20,
+    padding: 24,
+  },
+  logoContainer: {
+    alignItems: "center",
+    marginBottom: 48,
+  },
+  logo: {
+    fontSize: 80,
+    marginBottom: 8,
   },
   title: {
-    fontSize: 48,
+    fontSize: 40,
     fontWeight: "bold",
-    textAlign: "center",
     marginBottom: 8,
-    color: "#000",
   },
   subtitle: {
     fontSize: 16,
-    textAlign: "center",
-    color: "#666",
-    marginBottom: 40,
+    opacity: 0.7,
   },
   form: {
     width: "100%",
   },
+  inputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
   input: {
-    backgroundColor: "#f5f5f5",
-    borderRadius: 8,
-    padding: 15,
-    marginBottom: 15,
+    flex: 1,
+    marginLeft: 12,
     fontSize: 16,
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
   },
   button: {
-    backgroundColor: "#007AFF",
-    borderRadius: 8,
-    padding: 15,
+    borderRadius: 16,
+    padding: 18,
     alignItems: "center",
-    marginTop: 10,
+    marginTop: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
   },
   buttonDisabled: {
     opacity: 0.6,
   },
   buttonText: {
     color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
+    fontSize: 18,
+    fontWeight: "bold",
   },
   verificationText: {
     fontSize: 14,
-    color: "#666",
     marginBottom: 20,
     textAlign: "center",
   },
   footer: {
     flexDirection: "row",
     justifyContent: "center",
-    marginTop: 20,
+    marginTop: 24,
   },
   footerText: {
-    color: "#666",
     fontSize: 14,
   },
   link: {
-    color: "#007AFF",
     fontSize: 14,
     fontWeight: "600",
   },

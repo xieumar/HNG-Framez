@@ -1,10 +1,11 @@
 import { ClerkProvider, useAuth } from "@clerk/clerk-expo";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
 import { ConvexReactClient } from "convex/react";
-import { Slot, useRouter, useSegments } from "expo-router";
+import { Slot } from "expo-router";
 import * as SecureStore from "expo-secure-store";
-import { useEffect } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { ThemeProvider } from "../context/ThemeContext";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
 const convex = new ConvexReactClient(process.env.EXPO_PUBLIC_CONVEX_URL!, {
   unsavedChangesWarning: false,
@@ -27,45 +28,19 @@ const tokenCache = {
   },
 };
 
-function InitialLayout() {
-  const { isLoaded, isSignedIn } = useAuth();
-  const segments = useSegments();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (!isLoaded) return;
-
-    const inAuthGroup = segments[0] === "(auth)";
-
-    if (isSignedIn && inAuthGroup) {
-      // User is signed in but viewing auth screens, redirect to feed
-      router.replace("/(tabs)/feed");
-    } else if (!isSignedIn && !inAuthGroup) {
-      // User is not signed in but viewing protected screens, redirect to sign in
-      router.replace("/(auth)/sign-in");
-    }
-  }, [isSignedIn, isLoaded]);
-
-  if (!isLoaded) {
-    return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator size="large" color="#007AFF" />
-      </View>
-    );
-  }
-
-  return <Slot />;
-}
-
 export default function RootLayout() {
   return (
-    <ClerkProvider
-      publishableKey={process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!}
-      tokenCache={tokenCache}
-    >
-      <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
-        <InitialLayout />
-      </ConvexProviderWithClerk>
-    </ClerkProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ClerkProvider
+        publishableKey={process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!}
+        tokenCache={tokenCache}
+      >
+        <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
+          <ThemeProvider>
+            <Slot />
+          </ThemeProvider>
+        </ConvexProviderWithClerk>
+      </ClerkProvider>
+    </GestureHandlerRootView>
   );
 }

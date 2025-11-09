@@ -1,22 +1,22 @@
 import { useUser, useClerk } from "@clerk/clerk-expo";
-import { useQuery } from "convex/react";
-import { Alert } from "react-native";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import {
   View,
   Text,
   FlatList,
   StyleSheet,
-  ActivityIndicator,
   Image,
-  TouchableOpacity,
-  Platform,
   Modal,
   Pressable,
+  Platform,
 } from "react-native";
-import { useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
+import { Ionicons } from "@expo/vector-icons";
+import { useTheme } from "../../context/ThemeContext";
+import { BouncyButton, FadeInView, CuteLoader } from "../../components/Animated";
+import { LinearGradient } from "expo-linear-gradient";
+import * as ImagePicker from "expo-image-picker";
 
 function formatTimestamp(timestamp: number) {
   const date = new Date(timestamp);
@@ -34,18 +34,27 @@ function formatTimestamp(timestamp: number) {
 }
 
 function PostCard({ post }: { post: any }) {
+  const { colors } = useTheme();
+
   return (
-    <View style={styles.postCard}>
+    <View style={[styles.postCard, { backgroundColor: colors.card }]}>
       <View style={styles.postHeader}>
-        <Text style={styles.timestamp}>
+        <Ionicons name="time-outline" size={14} color={colors.textSecondary} />
+        <Text style={[styles.timestamp, { color: colors.textSecondary }]}>
           {formatTimestamp(post.createdAt)}
         </Text>
       </View>
 
-      {post.content && <Text style={styles.postContent}>{post.content}</Text>}
+      {post.content && (
+        <Text style={[styles.postContent, { color: colors.text }]}>
+          {post.content}
+        </Text>
+      )}
 
       {post.imageUrl && (
-        <Image source={{ uri: post.imageUrl }} style={styles.postImage} />
+        <View style={styles.imageWrapper}>
+          <Image source={{ uri: post.imageUrl }} style={styles.postImage} />
+        </View>
       )}
     </View>
   );
@@ -54,11 +63,16 @@ function PostCard({ post }: { post: any }) {
 export default function ProfileScreen() {
   const { user } = useUser();
   const { signOut } = useClerk();
-  const router = useRouter();
+  const { colors } = useTheme();
+  const [showModal, setShowModal] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   const convexUser = useQuery(api.users.getCurrentUser, {
     clerkId: user?.id || "",
   });
+  const updateUser = useMutation(api.users.store);
+  const generateUploadUrl = useMutation(api.files.generateUploadUrl);
 
   const userPosts = useQuery(
     api.posts.getUserPosts,
@@ -66,244 +80,449 @@ export default function ProfileScreen() {
   );
 
   const handleSignOut = async () => {
-    const confirmMessage = "Are you sure you want to sign out?";
-    
-    // Use window.confirm for web, Alert for mobile
-    if (Platform.OS === "web") {
-      if (window.confirm(confirmMessage)) {
-        try {
-          await signOut();
-          // Force a full page reload on web to clear all state
-          window.location.href = "/";
-        } catch (error) {
-          console.error("Sign out error:", error);
-          alert("Failed to sign out. Please try again.");
-        }
+    setSigningOut(true);
+    try {
+      await signOut();
+      setShowModal(false);
+      
+      if (Platform.OS === "web") {
+        window.location.href = "/";
       }
-    } else {
-      Alert.alert("Sign Out", confirmMessage, [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Sign Out",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await signOut();
-              router.replace("/");
-            } catch (error) {
-              console.error("Sign out error:", error);
-              Alert.alert("Error", "Failed to sign out. Please try again.");
-            }
-          },
-        },
-      ]);
+    } catch (error) {
+      console.error("Sign out error:", error);
+      setSigningOut(false);
+      setShowModal(false);
+    }
+  };
+
+  const pickAvatar = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && convexUser) {
+      setUploadingAvatar(true);
+      try {
+        const uploadUrl = await generateUploadUrl();
+        const response = await fetch(result.assets[0].uri);
+        const blob = await response.blob();
+
+        const uploadResponse = await fetch(uploadUrl, {
+          method: "POST",
+          headers: { "Content-Type": blob.type },
+          body: blob,
+        });
+
+        const { storageId } = await uploadResponse.json();
+        const avatarUrl = `${process.env.EXPO_PUBLIC_CONVEX_URL}/api/storage/${storageId}`;
+
+        await updateUser({
+          clerkId: user?.id || "",
+          name: convexUser.name,
+          email: convexUser.email,
+          avatar: avatarUrl,
+        });
+      } catch (error) {
+        console.error("Error uploading avatar:", error);
+      } finally {
+        setUploadingAvatar(false);
+      }
     }
   };
 
   if (convexUser === undefined || userPosts === undefined) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
+      <View style={[styles.centerContainer, { backgroundColor: colors.background }]}>
+        <CuteLoader />
       </View>
     );
   }
 
   const ListHeader = () => (
-    <View style={styles.header}>
-      <View style={styles.profileSection}>
-        {convexUser?.avatar ? (
-          <Image
-            source={{ uri: convexUser.avatar }}
-            style={styles.profileImage}
-          />
-        ) : (
-          <View style={[styles.profileImage, styles.profileImagePlaceholder]}>
-            <Text style={styles.profileImageText}>
-              {convexUser?.name?.charAt(0).toUpperCase() || "?"}
-            </Text>
-          </View>
-        )}
-        <Text style={styles.name}>{convexUser?.name}</Text>
-        <Text style={styles.email}>{convexUser?.email}</Text>
+    <FadeInView style={styles.header}>
+      <LinearGradient
+        colors={[colors.gradient1, colors.gradient2]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.headerGradient}
+      >
+        <View style={styles.profileSection}>
+          <BouncyButton onPress={pickAvatar} style={{}}>
+            <View style={styles.avatarWrapper}>
+              {convexUser?.avatar ? (
+                <Image
+                  source={{ uri: convexUser.avatar }}
+                  style={styles.profileImage}
+                />
+              ) : (
+                <LinearGradient
+                  colors={[colors.primary, colors.secondary]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={[styles.profileImage, styles.profileImagePlaceholder]}
+                >
+                  <Text style={styles.profileImageText}>
+                    {convexUser?.name?.charAt(0).toUpperCase() || "?"}
+                  </Text>
+                </LinearGradient>
+              )}
+              <View style={[styles.editBadge, { backgroundColor: colors.primary }]}>
+                <Ionicons name={uploadingAvatar ? "hourglass" : "camera"} size={16} color="#fff" />
+              </View>
+            </View>
+          </BouncyButton>
 
-        <View style={styles.statsContainer}>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{userPosts?.length || 0}</Text>
-            <Text style={styles.statLabel}>Posts</Text>
+          <Text style={styles.name}>{convexUser?.name}</Text>
+          <Text style={styles.email}>{convexUser?.email}</Text>
+
+          <View style={styles.statsContainer}>
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{userPosts?.length || 0}</Text>
+              <Text style={styles.statLabel}>Posts</Text>
+            </View>
+            <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>🎨</Text>
+              <Text style={styles.statLabel}>Creative</Text>
+            </View>
           </View>
+
+          <BouncyButton onPress={() => setShowModal(true)} style={{}}>
+            <View style={[styles.signOutButton, { borderColor: "#FF4757" }]}>
+              <Ionicons name="log-out-outline" size={20} color="#FF4757" />
+              <Text style={[styles.signOutText, { color: "#FF4757"}]}>Sign Out</Text>
+            </View>
+          </BouncyButton>
         </View>
+      </LinearGradient>
 
-        <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
-          <Ionicons name="log-out-outline" size={20} color="#FF3B30" />
-          <Text style={styles.signOutText}>Sign Out</Text>
-        </TouchableOpacity>
+      <View style={[styles.postsHeader, { backgroundColor: colors.background }]}>
+        <Ionicons name="grid-outline" size={20} color={colors.text} />
+        <Text style={[styles.postsTitle, { color: colors.text }]}>My Posts</Text>
       </View>
-
-      <View style={styles.postsHeader}>
-        <Text style={styles.postsTitle}>My Posts</Text>
-      </View>
-    </View>
+    </FadeInView>
   );
 
   if (!userPosts || userPosts.length === 0) {
     return (
-      <View style={styles.container}>
-        <ListHeader />
-        <View style={styles.emptyContainer}>
-          <Ionicons name="images-outline" size={64} color="#ccc" />
-          <Text style={styles.emptyText}>No posts yet</Text>
-          <Text style={styles.emptySubtext}>
-            Create your first post to see it here
-          </Text>
-        </View>
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <FlatList
+          data={[]}
+          renderItem={() => null}
+          ListHeaderComponent={ListHeader}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyEmoji}>📸</Text>
+              <Text style={[styles.emptyText, { color: colors.text }]}>No posts yet</Text>
+              <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
+                Create your first post to see it here! ✨
+              </Text>
+            </View>
+          }
+        />
+        <SignOutModal 
+          visible={showModal}
+          onClose={() => setShowModal(false)}
+          onConfirm={handleSignOut}
+          loading={signingOut}
+        />
       </View>
     );
   }
 
   return (
-    <FlatList
-      style={styles.container}
-      data={userPosts}
-      keyExtractor={(item) => item._id}
-      renderItem={({ item }) => <PostCard post={item} />}
-      ListHeaderComponent={ListHeader}
-      contentContainerStyle={styles.listContainer}
-    />
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <FlatList
+        data={userPosts}
+        keyExtractor={(item) => item._id}
+        renderItem={({ item }) => <PostCard post={item} />}
+        ListHeaderComponent={ListHeader}
+        contentContainerStyle={styles.listContainer}
+        showsVerticalScrollIndicator={false}
+      />
+      <SignOutModal 
+        visible={showModal}
+        onClose={() => setShowModal(false)}
+        onConfirm={handleSignOut}
+        loading={signingOut}
+      />
+    </View>
+  );
+}
+
+function SignOutModal({ 
+  visible, 
+  onClose, 
+  onConfirm, 
+  loading 
+}: { 
+  visible: boolean; 
+  onClose: () => void; 
+  onConfirm: () => void; 
+  loading: boolean;
+}) {
+  const { colors } = useTheme();
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable style={styles.modalOverlay} onPress={() => !loading && onClose()}>
+        <Pressable style={[styles.modalContent, { backgroundColor: colors.card }]} onPress={(e) => e.stopPropagation()}>
+          <FadeInView style={styles.modalHeader}>
+            <Text style={styles.modalEmoji}>👋</Text>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>See you soon!</Text>
+            <Text style={[styles.modalMessage, { color: colors.textSecondary }]}>
+              Are you sure you want to sign out?
+            </Text>
+          </FadeInView>
+
+          <View style={styles.modalActions}>
+            <BouncyButton onPress={onClose} disabled={loading} style={{ flex: 1 }}>
+              <View style={[styles.modalButton, styles.cancelButton, { backgroundColor: colors.surface }]}>
+                <Text style={[styles.cancelButtonText, { color: colors.text }]}>Cancel</Text>
+              </View>
+            </BouncyButton>
+
+            <BouncyButton onPress={onConfirm} disabled={loading} style={{ flex: 1 }}>
+              <LinearGradient
+                colors={[colors.error, "#FF4757"]}
+                style={[styles.modalButton, styles.confirmButton, loading && styles.buttonDisabled]}
+              >
+                <Text style={styles.confirmButtonText}>
+                  {loading ? "Signing out..." : "Sign Out"}
+                </Text>
+              </LinearGradient>
+            </BouncyButton>
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
   },
   centerContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#f5f5f5",
   },
   listContainer: {
     paddingBottom: 20,
   },
   header: {
-    backgroundColor: "#fff",
     marginBottom: 8,
+  },
+  headerGradient: {
+    paddingBottom: 24,
   },
   profileSection: {
     alignItems: "center",
-    padding: 20,
+    paddingTop: 24,
+  },
+  avatarWrapper: {
+    position: "relative",
+    marginBottom: 16,
   },
   profileImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    marginBottom: 15,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 4,
+    borderColor: "#fff",
   },
   profileImagePlaceholder: {
-    backgroundColor: "#007AFF",
     justifyContent: "center",
     alignItems: "center",
   },
   profileImageText: {
     color: "#fff",
-    fontSize: 40,
-    fontWeight: "600",
+    fontSize: 48,
+    fontWeight: "bold",
+  },
+  editBadge: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 3,
+    borderColor: "#fff",
   },
   name: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: "bold",
-    color: "#000",
-    marginBottom: 5,
+    color: "#fff",
+    marginBottom: 4,
   },
   email: {
     fontSize: 14,
-    color: "#8E8E93",
+    color: "rgba(255,255,255,0.8)",
     marginBottom: 20,
   },
   statsContainer: {
     flexDirection: "row",
+    alignItems: "center",
     marginBottom: 20,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    borderRadius: 16,
+    padding: 16,
   },
   statItem: {
     alignItems: "center",
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
+  },
+  statDivider: {
+    width: 1,
+    height: 40,
   },
   statValue: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: "bold",
-    color: "#000",
+    color: "#fff",
   },
   statLabel: {
-    fontSize: 14,
-    color: "#8E8E93",
-    marginTop: 2,
+    fontSize: 12,
+    color: "rgba(255,255,255,0.8)",
+    marginTop: 4,
   },
   signOutButton: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 12,
-    backgroundColor: "#fff",
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#FF3B30",
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    borderRadius: 12,
+    borderWidth: 2,
   },
   signOutText: {
-    marginLeft: 8,
     fontSize: 16,
     fontWeight: "600",
-    color: "#FF3B30",
   },
   postsHeader: {
-    padding: 15,
-    borderTopWidth: 1,
-    borderTopColor: "#e0e0e0",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    padding: 16,
   },
   postsTitle: {
     fontSize: 18,
     fontWeight: "bold",
-    color: "#000",
   },
   postCard: {
-    backgroundColor: "#fff",
-    marginBottom: 8,
-    padding: 15,
+    marginHorizontal: 12,
+    marginVertical: 6,
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
   },
   postHeader: {
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 10,
+    gap: 4,
   },
   timestamp: {
     fontSize: 12,
-    color: "#8E8E93",
   },
   postContent: {
     fontSize: 15,
-    color: "#000",
+    lineHeight: 22,
     marginBottom: 10,
-    lineHeight: 20,
+  },
+  imageWrapper: {
+    borderRadius: 12,
+    overflow: "hidden",
   },
   postImage: {
     width: "100%",
-    height: 300,
-    borderRadius: 8,
+    height: 200,
     backgroundColor: "#f0f0f0",
   },
   emptyContainer: {
-    flex: 1,
-    justifyContent: "center",
     alignItems: "center",
     padding: 40,
+  },
+  emptyEmoji: {
+    fontSize: 64,
+    marginBottom: 16,
   },
   emptyText: {
     fontSize: 18,
     fontWeight: "600",
-    color: "#000",
-    marginTop: 15,
-    marginBottom: 5,
+    marginBottom: 8,
   },
   emptySubtext: {
     fontSize: 14,
-    color: "#8E8E93",
     textAlign: "center",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContent: {
+    borderRadius: 24,
+    padding: 24,
+    width: "85%",
+    maxWidth: 400,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  modalHeader: {
+    alignItems: "center",
+    marginBottom: 24,
+  },
+  modalEmoji: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    marginBottom: 8,
+  },
+  modalMessage: {
+    fontSize: 16,
+    textAlign: "center",
+  },
+  modalActions: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  modalButton: {
+    padding: 16,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  cancelButton: {},
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  confirmButton: {},
+  confirmButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#fff",
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
 });

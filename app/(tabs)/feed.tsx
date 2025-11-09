@@ -5,11 +5,14 @@ import {
   Text,
   FlatList,
   StyleSheet,
-  ActivityIndicator,
   Image,
   RefreshControl,
 } from "react-native";
 import { useState } from "react";
+import { useTheme } from "../../context/ThemeContext";
+import { FadeInView, CuteLoader, CuteError } from "../../components/Animated";
+import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
 
 function formatTimestamp(timestamp: number) {
   const date = new Date(timestamp);
@@ -26,9 +29,11 @@ function formatTimestamp(timestamp: number) {
   return date.toLocaleDateString();
 }
 
-function PostCard({ post }: { post: any }) {
+function PostCard({ post, index }: { post: any; index: number }) {
+  const { colors } = useTheme();
+
   return (
-    <View style={styles.postCard}>
+    <FadeInView delay={index * 100} style={[styles.postCard, { backgroundColor: colors.card }]}>
       <View style={styles.postHeader}>
         <View style={styles.avatarContainer}>
           {post.author?.avatar ? (
@@ -37,55 +42,89 @@ function PostCard({ post }: { post: any }) {
               style={styles.avatar}
             />
           ) : (
-            <View style={[styles.avatar, styles.avatarPlaceholder]}>
+            <LinearGradient
+              colors={[colors.gradient1, colors.gradient2]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={[styles.avatar, styles.avatarPlaceholder]}
+            >
               <Text style={styles.avatarText}>
                 {post.author?.name?.charAt(0).toUpperCase() || "?"}
               </Text>
-            </View>
+            </LinearGradient>
           )}
         </View>
         <View style={styles.postInfo}>
-          <Text style={styles.authorName}>{post.author?.name || "Unknown"}</Text>
-          <Text style={styles.timestamp}>
-            {formatTimestamp(post.createdAt)}
+          <Text style={[styles.authorName, { color: colors.text }]}>
+            {post.author?.name || "Unknown"}
           </Text>
+          <View style={styles.timestampContainer}>
+            <Ionicons name="time-outline" size={12} color={colors.textSecondary} />
+            <Text style={[styles.timestamp, { color: colors.textSecondary }]}>
+              {formatTimestamp(post.createdAt)}
+            </Text>
+          </View>
         </View>
       </View>
 
-      {post.content && <Text style={styles.postContent}>{post.content}</Text>}
+      {post.content && (
+        <Text style={[styles.postContent, { color: colors.text }]}>
+          {post.content}
+        </Text>
+      )}
 
       {post.imageUrl && (
-        <Image source={{ uri: post.imageUrl }} style={styles.postImage} />
+        <View style={styles.imageWrapper}>
+          <Image 
+            source={{ uri: post.imageUrl }} 
+            style={styles.postImage}
+            resizeMode="cover"
+          />
+        </View>
       )}
-    </View>
+
+      <View style={styles.postActions}>
+        <View style={styles.actionButton}>
+          <Ionicons name="heart-outline" size={24} color={colors.primary} />
+          <Text style={[styles.actionText, { color: colors.textSecondary }]}>Like</Text>
+        </View>
+        <View style={styles.actionButton}>
+          <Ionicons name="chatbubble-outline" size={22} color={colors.secondary} />
+          <Text style={[styles.actionText, { color: colors.textSecondary }]}>Comment</Text>
+        </View>
+        <View style={styles.actionButton}>
+          <Ionicons name="share-outline" size={24} color={colors.accent} />
+          <Text style={[styles.actionText, { color: colors.textSecondary }]}>Share</Text>
+        </View>
+      </View>
+    </FadeInView>
   );
 }
 
 export default function FeedScreen() {
+  const { colors } = useTheme();
   const posts = useQuery(api.posts.getAllPosts);
   const [refreshing, setRefreshing] = useState(false);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    // Convex automatically refreshes, so just wait a moment
     setTimeout(() => setRefreshing(false), 1000);
   };
 
   if (posts === undefined) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
+      <View style={[styles.centerContainer, { backgroundColor: colors.background }]}>
+        <CuteLoader />
       </View>
     );
   }
 
   if (posts.length === 0) {
     return (
-      <View style={styles.centerContainer}>
-        <Text style={styles.emptyText}>No posts yet</Text>
-        <Text style={styles.emptySubtext}>
-          Be the first to share something!
-        </Text>
+      <View style={[styles.centerContainer, { backgroundColor: colors.background }]}>
+        <CuteError 
+          message="No posts yet! Be the first to share something amazing! 🎨"
+        />
       </View>
     );
   }
@@ -94,11 +133,17 @@ export default function FeedScreen() {
     <FlatList
       data={posts}
       keyExtractor={(item) => item._id}
-      renderItem={({ item }) => <PostCard post={item} />}
-      contentContainerStyle={styles.listContainer}
+      renderItem={({ item, index }) => <PostCard post={item} index={index} />}
+      contentContainerStyle={[styles.listContainer, { backgroundColor: colors.background }]}
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        <RefreshControl 
+          refreshing={refreshing} 
+          onRefresh={onRefresh}
+          tintColor={colors.primary}
+          colors={[colors.primary, colors.secondary]}
+        />
       }
+      showsVerticalScrollIndicator={false}
     />
   );
 }
@@ -108,72 +153,88 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#f5f5f5",
   },
   listContainer: {
-    backgroundColor: "#f5f5f5",
+    paddingVertical: 8,
   },
   postCard: {
-    backgroundColor: "#fff",
-    marginBottom: 8,
-    padding: 15,
+    marginHorizontal: 12,
+    marginVertical: 6,
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
   },
   postHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 10,
+    marginBottom: 12,
   },
   avatarContainer: {
-    marginRight: 10,
+    marginRight: 12,
   },
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
   },
   avatarPlaceholder: {
-    backgroundColor: "#007AFF",
     justifyContent: "center",
     alignItems: "center",
   },
   avatarText: {
     color: "#fff",
-    fontSize: 18,
-    fontWeight: "600",
+    fontSize: 20,
+    fontWeight: "bold",
   },
   postInfo: {
     flex: 1,
   },
   authorName: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#000",
+    fontSize: 16,
+    fontWeight: "bold",
+    marginBottom: 4,
+  },
+  timestampContainer: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   timestamp: {
     fontSize: 12,
-    color: "#8E8E93",
-    marginTop: 2,
+    marginLeft: 4,
   },
   postContent: {
     fontSize: 15,
-    color: "#000",
-    marginBottom: 10,
-    lineHeight: 20,
+    lineHeight: 22,
+    marginBottom: 12,
+  },
+  imageWrapper: {
+    borderRadius: 12,
+    overflow: "hidden",
+    marginBottom: 12,
   },
   postImage: {
     width: "100%",
     height: 300,
-    borderRadius: 8,
     backgroundColor: "#f0f0f0",
   },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#000",
-    marginBottom: 8,
+  postActions: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(0,0,0,0.05)",
   },
-  emptySubtext: {
+  actionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  actionText: {
     fontSize: 14,
-    color: "#8E8E93",
+    fontWeight: "600",
   },
 });
