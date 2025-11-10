@@ -6,7 +6,7 @@ export const store = mutation({
     clerkId: v.string(),
     name: v.string(),
     email: v.string(),
-    avatar: v.optional(v.string()),
+    avatar: v.optional(v.id("_storage")),
   },
   handler: async (ctx, args) => {
     const existing = await ctx.db

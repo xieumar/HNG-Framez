@@ -1,3 +1,4 @@
+// convex/posts.ts
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
@@ -5,13 +6,55 @@ export const create = mutation({
   args: {
     userId: v.id("users"),
     content: v.string(),
-    imageStorageId: v.optional(v.string()), // CHANGED from imageUrl
+    imageStorageId: v.optional(v.id("_storage")),
   },
   handler: async (ctx, args) => {
     return await ctx.db.insert("posts", {
       ...args,
       createdAt: Date.now(),
     });
+  },
+});
+
+export const update = mutation({
+  args: {
+    postId: v.id("posts"),
+    content: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const post = await ctx.db.get(args.postId);
+    
+    if (!post) {
+      throw new Error("Post not found");
+    }
+
+    await ctx.db.patch(args.postId, {
+      content: args.content,
+    });
+  },
+});
+
+export const deletePost = mutation({
+  args: {
+    postId: v.id("posts"),
+  },
+  handler: async (ctx, args) => {
+    const post = await ctx.db.get(args.postId);
+    
+    if (!post) {
+      throw new Error("Post not found");
+    }
+
+    // Delete the image from storage if it exists
+    if (post.imageStorageId && !post.imageStorageId.startsWith("http")) {
+      try {
+        await ctx.storage.delete(post.imageStorageId);
+      } catch (error) {
+        console.error("Error deleting image:", error);
+      }
+    }
+
+    await ctx.db.delete(args.postId);
   },
 });
 
@@ -62,7 +105,6 @@ export const getAllPosts = query({
   },
 });
 
-
 export const getUserPosts = query({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
@@ -72,7 +114,6 @@ export const getUserPosts = query({
       .order("desc")
       .collect();
 
-    // Get image URLs for each post
     const postsWithImages = await Promise.all(
       posts.map(async (post) => {
         let imageUrl = null;
