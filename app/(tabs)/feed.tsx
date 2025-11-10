@@ -17,12 +17,16 @@ import {
   Share,
   ScrollView,
 } from "react-native";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useTheme } from "../../context/ThemeContext";
 import { FadeInView, CuteLoader, CuteError, BouncyButton } from "../../components/Animated";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import Toast from "react-native-toast-message";
+import { Id } from "../../convex/_generated/dataModel";
+
+// Type for optimistic comment count updates
+type OptimisticCounts = Map<Id<"posts">, number>;
 
 function formatTimestamp(timestamp: number) {
   const date = new Date(timestamp);
@@ -49,11 +53,26 @@ interface PostCardProps {
   onLike: (post: any) => void;
   onShare: (post: any) => void;
   isLiked: boolean;
+  optimisticCommentCount?: number;
 }
 
-function PostCard({ post, index, currentUserId, onEdit, onDelete, onComment, onLike, onShare, isLiked }: PostCardProps) {
+function PostCard({ 
+  post, 
+  index, 
+  currentUserId, 
+  onEdit, 
+  onDelete, 
+  onComment, 
+  onLike, 
+  onShare, 
+  isLiked,
+  optimisticCommentCount
+}: PostCardProps) {
   const { colors } = useTheme();
   const isOwner = post.userId === currentUserId;
+
+  // Use optimistic count if available, otherwise use server count
+  const displayCommentsCount = optimisticCommentCount ?? post.commentsCount ?? 0;
 
   return (
     <FadeInView delay={index * 100} style={[styles.postCard, { backgroundColor: colors.card }]}>
@@ -132,7 +151,7 @@ function PostCard({ post, index, currentUserId, onEdit, onDelete, onComment, onL
         <TouchableOpacity onPress={() => onComment(post)} style={styles.actionButton}>
           <Ionicons name="chatbubble-outline" size={22} color={colors.secondary} />
           <Text style={[styles.actionText, { color: colors.textSecondary }]}>
-            {post.commentsCount || 0}
+            {displayCommentsCount}
           </Text>
         </TouchableOpacity>
         
@@ -167,14 +186,34 @@ export default function FeedScreen() {
   const [commentContent, setCommentContent] = useState("");
   const [loading, setLoading] = useState(false);
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
+  
+  // Optimistic comment counts: stores the INCREMENT from server value
+  const [optimisticCommentDeltas, setOptimisticCommentDeltas] = useState<OptimisticCounts>(new Map());
 
   const comments = useQuery(
     api.comments.getPostComments,
     selectedPost ? { postId: selectedPost._id } : "skip"
   );
 
+  // Compute optimistic counts by adding delta to server count
+  const postsWithOptimisticCounts = useMemo(() => {
+    if (!posts) return [];
+    
+    return posts.map(post => {
+      const delta = optimisticCommentDeltas.get(post._id) ?? 0;
+      const optimisticCount = (post.commentsCount ?? 0) + delta;
+      
+      return {
+        ...post,
+        optimisticCommentCount: optimisticCount
+      };
+    });
+  }, [posts, optimisticCommentDeltas]);
+
   const onRefresh = async () => {
     setRefreshing(true);
+    // Clear optimistic updates on refresh
+    setOptimisticCommentDeltas(new Map());
     setTimeout(() => setRefreshing(false), 1000);
   };
 
@@ -238,7 +277,22 @@ export default function FeedScreen() {
       return;
     }
 
+    // Optimistically increment the comment count BEFORE setting loading
+    setOptimisticCommentDeltas(prev => {
+      const newMap = new Map(prev);
+      const currentDelta = newMap.get(selectedPost._id) ?? 0;
+      newMap.set(selectedPost._id, currentDelta );
+      return newMap;
+    });
+
+    // Also update the selectedPost immediately so modal shows updated count
+    setSelectedPost((prev: any) => ({
+      ...prev,
+      commentsCount: (prev.commentsCount || 0) + 1
+    }));
+
     setLoading(true);
+
     try {
       await createComment({
         postId: selectedPost._id,
@@ -254,7 +308,35 @@ export default function FeedScreen() {
       });
 
       setCommentContent("");
+      
+      // Clear the optimistic update after a short delay to ensure server has updated
+      setTimeout(() => {
+        setOptimisticCommentDeltas(prev => {
+          const newMap = new Map(prev);
+          newMap.delete(selectedPost._id);
+          return newMap;
+        });
+      }, 1000);
+      
     } catch (error) {
+      // Revert optimistic update on error
+      setOptimisticCommentDeltas(prev => {
+        const newMap = new Map(prev);
+        const currentDelta = newMap.get(selectedPost._id) ?? 0;
+        if (currentDelta > 0) {
+          newMap.set(selectedPost._id, currentDelta - 1);
+        } else {
+          newMap.delete(selectedPost._id);
+        }
+        return newMap;
+      });
+
+      // Also revert the selectedPost update
+      setSelectedPost((prev: any) => ({
+        ...prev,
+        commentsCount: Math.max(0, (prev.commentsCount || 0) - 1)
+      }));
+      
       Toast.show({
         type: "error",
         text1: "Comment failed",
@@ -406,7 +488,7 @@ export default function FeedScreen() {
   return (
     <>
       <FlatList
-        data={posts}
+        data={postsWithOptimisticCounts}
         keyExtractor={(item) => item._id}
         renderItem={({ item, index }) => (
           <PostCard 
@@ -419,6 +501,7 @@ export default function FeedScreen() {
             onLike={handleLike}
             onShare={handleShare}
             isLiked={likedPosts.has(item._id)}
+            optimisticCommentCount={item.optimisticCommentCount}
           />
         )}
         contentContainerStyle={[styles.listContainer, { backgroundColor: colors.background }]}
@@ -530,7 +613,11 @@ export default function FeedScreen() {
         <View style={[styles.commentsModal, { backgroundColor: colors.background }]}>
           <View style={[styles.commentsHeader, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
             <Text style={[styles.commentsTitle, { color: colors.text }]}>
-              Comments ({selectedPost?.commentsCount || 0})
+              Comments ({
+                selectedPost 
+                  ? (postsWithOptimisticCounts.find(p => p._id === selectedPost._id)?.optimisticCommentCount ?? selectedPost.commentsCount ?? 0)
+                  : 0
+              })
             </Text>
             <TouchableOpacity onPress={() => setCommentModalVisible(false)}>
               <Ionicons name="close" size={28} color={colors.text} />

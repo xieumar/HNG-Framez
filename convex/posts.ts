@@ -103,18 +103,19 @@ export const getAllPosts = query({
       .order("desc")
       .collect();
 
-    const postsWithUsers = await Promise.all(
+    // Return posts + user + image data (Convex will now track changes)
+    return await Promise.all(
       posts.map(async (post) => {
         const user = await ctx.db.get(post.userId);
 
         let imageUrl = null;
         if (post.imageStorageId) {
-          if (typeof post.imageStorageId === 'string' && post.imageStorageId.startsWith("http")) {
+          if (typeof post.imageStorageId === "string" && post.imageStorageId.startsWith("http")) {
             imageUrl = post.imageStorageId;
           } else {
             try {
               imageUrl = await ctx.storage.getUrl(post.imageStorageId as any);
-            } catch (err) {
+            } catch {
               imageUrl = null;
             }
           }
@@ -122,31 +123,35 @@ export const getAllPosts = query({
 
         let avatarUrl = null;
         if (user?.avatar) {
-          if (typeof user.avatar === 'string' && user.avatar.startsWith("http")) {
+          if (typeof user.avatar === "string" && user.avatar.startsWith("http")) {
             avatarUrl = user.avatar;
           } else {
             try {
               avatarUrl = await ctx.storage.getUrl(user.avatar as any);
-            } catch (err) {
+            } catch {
               avatarUrl = null;
             }
           }
         }
 
         return {
-          ...post,
+          _id: post._id,
+          content: post.content,
+          createdAt: post.createdAt,
+          likesCount: post.likesCount,
+          commentsCount: post.commentsCount, // 👈 Convex tracks this now
+          sharesCount: post.sharesCount,
           imageUrl,
           author: user
             ? {
-                ...user,
+                name: user.name,
                 avatar: avatarUrl,
+                _id: user._id,
               }
             : null,
         };
       })
     );
-
-    return postsWithUsers;
   },
 });
 
