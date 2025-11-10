@@ -6,12 +6,15 @@ export const create = mutation({
   args: {
     userId: v.id("users"),
     content: v.string(),
-    imageStorageId: v.optional(v.id("_storage")),
+    imageStorageId: v.optional(v.union(v.id("_storage"), v.string())),
   },
   handler: async (ctx, args) => {
     return await ctx.db.insert("posts", {
       ...args,
       createdAt: Date.now(),
+      likesCount: 0,
+      commentsCount: 0,
+      sharesCount: 0,
     });
   },
 });
@@ -45,8 +48,28 @@ export const deletePost = mutation({
       throw new Error("Post not found");
     }
 
+    // Delete associated likes
+    const likes = await ctx.db
+      .query("likes")
+      .withIndex("by_post", (q) => q.eq("postId", args.postId))
+      .collect();
+    
+    for (const like of likes) {
+      await ctx.db.delete(like._id);
+    }
+
+    // Delete associated comments
+    const comments = await ctx.db
+      .query("comments")
+      .withIndex("by_post", (q) => q.eq("postId", args.postId))
+      .collect();
+    
+    for (const comment of comments) {
+      await ctx.db.delete(comment._id);
+    }
+
     // Delete the image from storage if it exists
-    if (post.imageStorageId && !post.imageStorageId.startsWith("http")) {
+    if (post.imageStorageId && typeof post.imageStorageId !== 'string') {
       try {
         await ctx.storage.delete(post.imageStorageId);
       } catch (error) {
@@ -55,6 +78,20 @@ export const deletePost = mutation({
     }
 
     await ctx.db.delete(args.postId);
+  },
+});
+
+export const incrementShareCount = mutation({
+  args: {
+    postId: v.id("posts"),
+  },
+  handler: async (ctx, args) => {
+    const post = await ctx.db.get(args.postId);
+    if (post) {
+      await ctx.db.patch(args.postId, {
+        sharesCount: (post.sharesCount || 0) + 1,
+      });
+    }
   },
 });
 
@@ -72,19 +109,27 @@ export const getAllPosts = query({
 
         let imageUrl = null;
         if (post.imageStorageId) {
-          if (!post.imageStorageId.startsWith("http")) {
-            imageUrl = await ctx.storage.getUrl(post.imageStorageId);
-          } else {
+          if (typeof post.imageStorageId === 'string' && post.imageStorageId.startsWith("http")) {
             imageUrl = post.imageStorageId;
+          } else {
+            try {
+              imageUrl = await ctx.storage.getUrl(post.imageStorageId as any);
+            } catch (err) {
+              imageUrl = null;
+            }
           }
         }
 
         let avatarUrl = null;
         if (user?.avatar) {
-          if (!user.avatar.startsWith("http")) {
-            avatarUrl = await ctx.storage.getUrl(user.avatar);
-          } else {
+          if (typeof user.avatar === 'string' && user.avatar.startsWith("http")) {
             avatarUrl = user.avatar;
+          } else {
+            try {
+              avatarUrl = await ctx.storage.getUrl(user.avatar as any);
+            } catch (err) {
+              avatarUrl = null;
+            }
           }
         }
 
@@ -118,7 +163,15 @@ export const getUserPosts = query({
       posts.map(async (post) => {
         let imageUrl = null;
         if (post.imageStorageId) {
-          imageUrl = await ctx.storage.getUrl(post.imageStorageId);
+          if (typeof post.imageStorageId === 'string' && post.imageStorageId.startsWith("http")) {
+            imageUrl = post.imageStorageId;
+          } else {
+            try {
+              imageUrl = await ctx.storage.getUrl(post.imageStorageId as any);
+            } catch (err) {
+              imageUrl = null;
+            }
+          }
         }
         return {
           ...post,

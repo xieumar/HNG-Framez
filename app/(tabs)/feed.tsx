@@ -14,6 +14,8 @@ import {
   Pressable,
   TextInput,
   Platform,
+  Share,
+  ScrollView,
 } from "react-native";
 import { useState } from "react";
 import { useTheme } from "../../context/ThemeContext";
@@ -43,9 +45,13 @@ interface PostCardProps {
   currentUserId?: string;
   onEdit: (post: any) => void;
   onDelete: (post: any) => void;
+  onComment: (post: any) => void;
+  onLike: (post: any) => void;
+  onShare: (post: any) => void;
+  isLiked: boolean;
 }
 
-function PostCard({ post, index, currentUserId, onEdit, onDelete }: PostCardProps) {
+function PostCard({ post, index, currentUserId, onEdit, onDelete, onComment, onLike, onShare, isLiked }: PostCardProps) {
   const { colors } = useTheme();
   const isOwner = post.userId === currentUserId;
 
@@ -112,18 +118,30 @@ function PostCard({ post, index, currentUserId, onEdit, onDelete }: PostCardProp
       )}
 
       <View style={styles.postActions}>
-        <View style={styles.actionButton}>
-          <Ionicons name="heart-outline" size={24} color={colors.primary} />
-          <Text style={[styles.actionText, { color: colors.textSecondary }]}>Like</Text>
-        </View>
-        <View style={styles.actionButton}>
+        <TouchableOpacity onPress={() => onLike(post)} style={styles.actionButton}>
+          <Ionicons 
+            name={isLiked ? "heart" : "heart-outline"} 
+            size={24} 
+            color={isLiked ? colors.error : colors.primary} 
+          />
+          <Text style={[styles.actionText, { color: colors.textSecondary }]}>
+            {post.likesCount || 0}
+          </Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity onPress={() => onComment(post)} style={styles.actionButton}>
           <Ionicons name="chatbubble-outline" size={22} color={colors.secondary} />
-          <Text style={[styles.actionText, { color: colors.textSecondary }]}>Comment</Text>
-        </View>
-        <View style={styles.actionButton}>
+          <Text style={[styles.actionText, { color: colors.textSecondary }]}>
+            {post.commentsCount || 0}
+          </Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity onPress={() => onShare(post)} style={styles.actionButton}>
           <Ionicons name="share-outline" size={24} color={colors.accent} />
-          <Text style={[styles.actionText, { color: colors.textSecondary }]}>Share</Text>
-        </View>
+          <Text style={[styles.actionText, { color: colors.textSecondary }]}>
+            {post.sharesCount || 0}
+          </Text>
+        </TouchableOpacity>
       </View>
     </FadeInView>
   );
@@ -136,17 +154,151 @@ export default function FeedScreen() {
   const convexUser = useQuery(api.users.getCurrentUser, user ? { clerkId: user.id } : "skip");
   const updatePost = useMutation(api.posts.update);
   const deletePost = useMutation(api.posts.deletePost);
+  const toggleLike = useMutation(api.likes.toggleLike);
+  const createComment = useMutation(api.comments.create);
+  const incrementShareCount = useMutation(api.posts.incrementShareCount);
   
   const [refreshing, setRefreshing] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [commentModalVisible, setCommentModalVisible] = useState(false);
   const [selectedPost, setSelectedPost] = useState<any>(null);
   const [editContent, setEditContent] = useState("");
+  const [commentContent, setCommentContent] = useState("");
   const [loading, setLoading] = useState(false);
+  const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
+
+  const comments = useQuery(
+    api.comments.getPostComments,
+    selectedPost ? { postId: selectedPost._id } : "skip"
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);
     setTimeout(() => setRefreshing(false), 1000);
+  };
+
+  const handleLike = async (post: any) => {
+    if (!convexUser) {
+      Toast.show({
+        type: "info",
+        text1: "Sign in required",
+        text2: "Please sign in to like posts",
+        position: "top",
+        topOffset: 60,
+      });
+      return;
+    }
+
+    try {
+      const result = await toggleLike({
+        postId: post._id,
+        userId: convexUser._id,
+      });
+
+      // Update local state
+      setLikedPosts(prev => {
+        const newSet = new Set(prev);
+        if (result.liked) {
+          newSet.add(post._id);
+        } else {
+          newSet.delete(post._id);
+        }
+        return newSet;
+      });
+    } catch (error) {
+      console.error("Error toggling like:", error);
+    }
+  };
+
+  const handleComment = (post: any) => {
+    if (!convexUser) {
+      Toast.show({
+        type: "info",
+        text1: "Sign in required",
+        text2: "Please sign in to comment",
+        position: "top",
+        topOffset: 60,
+      });
+      return;
+    }
+    setSelectedPost(post);
+    setCommentModalVisible(true);
+  };
+
+  const submitComment = async () => {
+    if (!selectedPost || !convexUser || !commentContent.trim()) {
+      Toast.show({
+        type: "warning",
+        text1: "Content required",
+        text2: "Please enter a comment",
+        position: "top",
+        topOffset: 60,
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await createComment({
+        postId: selectedPost._id,
+        userId: convexUser._id,
+        content: commentContent.trim(),
+      });
+
+      Toast.show({
+        type: "success",
+        text1: "Comment added! 💬",
+        position: "top",
+        topOffset: 60,
+      });
+
+      setCommentContent("");
+    } catch (error) {
+      Toast.show({
+        type: "error",
+        text1: "Comment failed",
+        text2: "Something went wrong",
+        position: "top",
+        topOffset: 60,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleShare = async (post: any) => {
+    try {
+      const message = `Check out this post by ${post.author?.name || "Unknown"}:\n\n${post.content}`;
+      
+      if (Platform.OS === "web") {
+        if (navigator.share) {
+          await navigator.share({
+            title: `Post by ${post.author?.name}`,
+            text: message,
+          });
+        } else {
+          await navigator.clipboard.writeText(message);
+          Toast.show({
+            type: "success",
+            text1: "Copied to clipboard! 📋",
+            position: "top",
+            topOffset: 60,
+          });
+        }
+      } else {
+        await Share.share({
+          message: message,
+        });
+      }
+
+      // Increment share count
+      await incrementShareCount({ postId: post._id });
+    } catch (error: any) {
+      if (error?.message !== "User cancelled") {
+        console.error("Error sharing:", error);
+      }
+    }
   };
 
   const handleEdit = (post: any) => {
@@ -263,6 +415,10 @@ export default function FeedScreen() {
             currentUserId={convexUser?._id}
             onEdit={handleEdit}
             onDelete={handleDelete}
+            onComment={handleComment}
+            onLike={handleLike}
+            onShare={handleShare}
+            isLiked={likedPosts.has(item._id)}
           />
         )}
         contentContainerStyle={[styles.listContainer, { backgroundColor: colors.background }]}
@@ -284,9 +440,6 @@ export default function FeedScreen() {
             <FadeInView style={styles.modalHeader}>
               <Text style={styles.modalEmoji}>✏️</Text>
               <Text style={[styles.modalTitle, { color: colors.text }]}>Edit Post</Text>
-              <Text style={[styles.modalMessage, { color: colors.textSecondary }]}>
-                Update your content
-              </Text>
             </FadeInView>
 
             <TextInput
@@ -303,9 +456,6 @@ export default function FeedScreen() {
               maxLength={500}
               autoFocus
             />
-            <Text style={[styles.characterCount, { color: colors.textSecondary }]}>
-              {editContent.length}/500
-            </Text>
 
             <View style={styles.modalActions}>
               <View style={styles.modalButtonWrapper}>
@@ -374,196 +524,134 @@ export default function FeedScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      {/* Comments Modal */}
+      <Modal visible={commentModalVisible} transparent animationType="slide">
+        <View style={[styles.commentsModal, { backgroundColor: colors.background }]}>
+          <View style={[styles.commentsHeader, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+            <Text style={[styles.commentsTitle, { color: colors.text }]}>
+              Comments ({selectedPost?.commentsCount || 0})
+            </Text>
+            <TouchableOpacity onPress={() => setCommentModalVisible(false)}>
+              <Ionicons name="close" size={28} color={colors.text} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.commentsList}>
+            {comments?.map((comment) => (
+              <View key={comment._id} style={[styles.commentItem, { backgroundColor: colors.card }]}>
+                <View style={styles.commentHeader}>
+                  {comment.author?.avatar ? (
+                    <Image
+                      source={{ uri: comment.author.avatar }}
+                      style={styles.commentAvatar}
+                    />
+                  ) : (
+                    <LinearGradient
+                      colors={[colors.gradient1, colors.gradient2]}
+                      style={[styles.commentAvatar, styles.avatarPlaceholder]}
+                    >
+                      <Text style={styles.commentAvatarText}>
+                        {comment.author?.name?.charAt(0).toUpperCase() || "?"}
+                      </Text>
+                    </LinearGradient>
+                  )}
+                  <View style={styles.commentInfo}>
+                    <Text style={[styles.commentAuthor, { color: colors.text }]}>
+                      {comment.author?.name || "Unknown"}
+                    </Text>
+                    <Text style={[styles.commentTime, { color: colors.textSecondary }]}>
+                      {formatTimestamp(comment.createdAt)}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={[styles.commentText, { color: colors.text }]}>
+                  {comment.content}
+                </Text>
+              </View>
+            ))}
+          </ScrollView>
+
+          <View style={[styles.commentInputContainer, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
+            <TextInput
+              style={[styles.commentInput, {
+                backgroundColor: colors.surface,
+                color: colors.text,
+              }]}
+              placeholder="Write a comment..."
+              placeholderTextColor={colors.textSecondary}
+              value={commentContent}
+              onChangeText={setCommentContent}
+              multiline
+            />
+            <TouchableOpacity
+              onPress={submitComment}
+              disabled={loading || !commentContent.trim()}
+              style={[styles.sendButton, (!commentContent.trim() || loading) && styles.sendButtonDisabled]}
+            >
+              <LinearGradient
+                colors={[colors.primary, colors.secondary]}
+                style={styles.sendButtonGradient}
+              >
+                <Ionicons name="send" size={20} color="#fff" />
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  centerContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  listContainer: {
-    paddingVertical: 8,
-  },
-  postCard: {
-    marginHorizontal: 12,
-    marginVertical: 6,
-    borderRadius: 16,
-    padding: 16,
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 3,
-      },
-      web: {
-        boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-      },
-    }),
-  },
-  postHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  avatarContainer: {
-    marginRight: 12,
-  },
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-  },
-  avatarPlaceholder: {
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  avatarText: {
-    color: "#fff",
-    fontSize: 20,
-    fontWeight: "bold",
-  },
-  postInfo: {
-    flex: 1,
-  },
-  authorName: {
-    fontSize: 16,
-    fontWeight: "bold",
-    marginBottom: 4,
-  },
-  timestampContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  timestamp: {
-    fontSize: 12,
-    marginLeft: 4,
-  },
-  postMenu: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  menuButton: {
-    padding: 8,
-    marginLeft: 4,
-  },
-  postContent: {
-    fontSize: 15,
-    lineHeight: 22,
-    marginBottom: 12,
-  },
-  imageWrapper: {
-    borderRadius: 12,
-    overflow: "hidden",
-    marginBottom: 12,
-  },
-  postImage: {
-    width: "100%",
-    height: 300,
-    backgroundColor: "#f0f0f0",
-  },
-  postActions: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(0,0,0,0.05)",
-  },
-  actionButton: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  actionText: {
-    fontSize: 14,
-    fontWeight: "600",
-    marginLeft: 6,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  modalContent: {
-    borderRadius: 24,
-    padding: 24,
-    width: "85%",
-    maxWidth: 400,
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.3,
-        shadowRadius: 16,
-      },
-      android: {
-        elevation: 8,
-      },
-      web: {
-        boxShadow: "0 8px 16px rgba(0,0,0,0.3)",
-      },
-    }),
-  },
-  modalHeader: {
-    alignItems: "center",
-    marginBottom: 24,
-  },
-  modalEmoji: {
-    fontSize: 64,
-    marginBottom: 16,
-  },
-  modalTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 8,
-  },
-  modalMessage: {
-    fontSize: 16,
-    textAlign: "center",
-  },
- editInput: {
-  fontSize: 16,
-  minHeight: 120,
-  textAlignVertical: "top",
-  padding: 16,
-  borderRadius: 12,
-  borderWidth: 2,
-  marginBottom: 8,
-},
-
-  characterCount: {
-    textAlign: "right",
-    fontSize: 12,
-    marginBottom: 16,
-  },
-  modalActions: {
-    flexDirection: "row",
-  },
-  modalButtonWrapper: {
-    flex: 1,
-    marginHorizontal: 6,
-  },
-  modalButton: {
-    padding: 16,
-    borderRadius: 12,
-    alignItems: "center",
-  },
-  cancelButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  confirmButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#fff",
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
+  centerContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
+  listContainer: { paddingVertical: 8 },
+  postCard: { marginHorizontal: 12, marginVertical: 6, borderRadius: 16, padding: 16, ...Platform.select({ ios: { shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8 }, android: { elevation: 3 }, web: { boxShadow: "0 2px 8px rgba(0,0,0,0.1)" } }) },
+  postHeader: { flexDirection: "row", alignItems: "center", marginBottom: 12 },
+  avatarContainer: { marginRight: 12 },
+  avatar: { width: 48, height: 48, borderRadius: 24 },
+  avatarPlaceholder: { justifyContent: "center", alignItems: "center" },
+  avatarText: { color: "#fff", fontSize: 20, fontWeight: "bold" },
+  postInfo: { flex: 1 },
+  authorName: { fontSize: 16, fontWeight: "bold", marginBottom: 4 },
+  timestampContainer: { flexDirection: "row", alignItems: "center" },
+  timestamp: { fontSize: 12, marginLeft: 4 },
+  postMenu: { flexDirection: "row", alignItems: "center" },
+  menuButton: { padding: 8, marginLeft: 4 },
+  postContent: { fontSize: 15, lineHeight: 22, marginBottom: 12 },
+  imageWrapper: { borderRadius: 12, overflow: "hidden", marginBottom: 12 },
+  postImage: { width: "100%", height: 300, backgroundColor: "#f0f0f0" },
+  postActions: { flexDirection: "row", justifyContent: "space-around", paddingTop: 12, borderTopWidth: 1, borderTopColor: "rgba(0,0,0,0.05)" },
+  actionButton: { flexDirection: "row", alignItems: "center", gap: 6 },
+  actionText: { fontSize: 14, fontWeight: "600" },
+  modalOverlay: { flex: 1, backgroundColor: "rgba(0, 0, 0, 0.5)", justifyContent: "center", alignItems: "center" },
+  modalContent: { borderRadius: 24, padding: 24, width: "85%", maxWidth: 400, ...Platform.select({ ios: { shadowColor: "#000", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 16 }, android: { elevation: 8 }, web: { boxShadow: "0 8px 16px rgba(0,0,0,0.3)" } }) },
+  modalHeader: { alignItems: "center", marginBottom: 24 },
+  modalEmoji: { fontSize: 64, marginBottom: 16 },
+  modalTitle: { fontSize: 24, fontWeight: "bold", marginBottom: 8 },
+  modalMessage: { fontSize: 16, textAlign: "center" },
+  editInput: { fontSize: 16, minHeight: 120, textAlignVertical: "top", padding: 16, borderRadius: 12, borderWidth: 2, marginBottom: 8 },
+  modalActions: { flexDirection: "row" },
+  modalButtonWrapper: { flex: 1, marginHorizontal: 6 },
+  modalButton: { padding: 16, borderRadius: 12, alignItems: "center" },
+  cancelButtonText: { fontSize: 16, fontWeight: "600" },
+  confirmButtonText: { fontSize: 16, fontWeight: "600", color: "#fff" },
+  buttonDisabled: { opacity: 0.6 },
+  commentsModal: { flex: 1, marginTop: Platform.OS === "web" ? 0 : 100 },
+  commentsHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 16, borderBottomWidth: 1 },
+  commentsTitle: { fontSize: 20, fontWeight: "bold" },
+  commentsList: { flex: 1, padding: 12 },
+  commentItem: { marginBottom: 12, padding: 12, borderRadius: 12 },
+  commentHeader: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
+  commentAvatar: { width: 36, height: 36, borderRadius: 18, marginRight: 8 },
+  commentAvatarText: { color: "#fff", fontSize: 16, fontWeight: "bold" },
+  commentInfo: { flex: 1 },
+  commentAuthor: { fontSize: 14, fontWeight: "bold" },
+  commentTime: { fontSize: 12 },
+  commentText: { fontSize: 14, lineHeight: 20, marginLeft: 44 },
+  commentInputContainer: { flexDirection: "row", alignItems: "flex-end", padding: 12, borderTopWidth: 1 },
+  commentInput: { flex: 1, fontSize: 16, padding: 12, borderRadius: 20, maxHeight: 100 },
+  sendButton: { marginLeft: 8 },
+  sendButtonDisabled: { opacity: 0.5 },
+  sendButtonGradient: { width: 44, height: 44, borderRadius: 22, justifyContent: "center", alignItems: "center" },
 });

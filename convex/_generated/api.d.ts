@@ -8,7 +8,9 @@
  * @module
  */
 
+import type * as comments from "../comments.js";
 import type * as files from "../files.js";
+import type * as likes from "../likes.js";
 import type * as posts from "../posts.js";
 import type * as users from "../users.js";
 
@@ -27,7 +29,9 @@ import type {
  * ```
  */
 declare const fullApi: ApiFromModules<{
+  comments: typeof comments;
   files: typeof files;
+  likes: typeof likes;
   posts: typeof posts;
   users: typeof users;
 }>;
