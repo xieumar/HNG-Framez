@@ -24,6 +24,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import Toast from "react-native-toast-message";
 import { Id } from "../../convex/_generated/dataModel";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // Type for optimistic comment count updates
 type OptimisticCounts = Map<Id<"posts">, number>;
@@ -169,6 +170,7 @@ function PostCard({
 export default function FeedScreen() {
   const { colors } = useTheme();
   const { user } = useUser();
+  const insets = useSafeAreaInsets();
   const posts = useQuery(api.posts.getAllPosts);
   const convexUser = useQuery(api.users.getCurrentUser, user ? { clerkId: user.id } : "skip");
   const updatePost = useMutation(api.posts.update);
@@ -288,7 +290,7 @@ export default function FeedScreen() {
     // Also update the selectedPost immediately so modal shows updated count
     setSelectedPost((prev: any) => ({
       ...prev,
-      commentsCount: (prev.commentsCount || 0) + 1
+      commentsCount: (prev.commentsCount ?? 0) + 1
     }));
 
     setLoading(true);
@@ -610,7 +612,7 @@ export default function FeedScreen() {
 
       {/* Comments Modal */}
       <Modal visible={commentModalVisible} transparent animationType="slide">
-        <View style={[styles.commentsModal, { backgroundColor: colors.background }]}>
+        <View style={[styles.commentsModal, { backgroundColor: colors.background, paddingTop: insets.top }]}>
           <View style={[styles.commentsHeader, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
             <Text style={[styles.commentsTitle, { color: colors.text }]}>
               Comments ({
@@ -659,7 +661,11 @@ export default function FeedScreen() {
             ))}
           </ScrollView>
 
-          <View style={[styles.commentInputContainer, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
+          <View style={[styles.commentInputContainer, { 
+            backgroundColor: colors.card, 
+            borderTopColor: colors.border,
+            paddingBottom: Math.max(insets.bottom, 12)
+          }]}>
             <TextInput
               style={[styles.commentInput, {
                 backgroundColor: colors.surface,
@@ -724,7 +730,7 @@ const styles = StyleSheet.create({
   cancelButtonText: { fontSize: 16, fontWeight: "600" },
   confirmButtonText: { fontSize: 16, fontWeight: "600", color: "#fff" },
   buttonDisabled: { opacity: 0.6 },
-  commentsModal: { flex: 1, marginTop: Platform.OS === "web" ? 0 : 100 },
+  commentsModal: { flex: 1 },
   commentsHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 16, borderBottomWidth: 1 },
   commentsTitle: { fontSize: 20, fontWeight: "bold" },
   commentsList: { flex: 1, padding: 12 },

@@ -9,7 +9,10 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import Toast from "react-native-toast-message";
 import { toastConfig } from "../config/toastConfig";
 
-const convex = new ConvexReactClient(process.env.EXPO_PUBLIC_CONVEX_URL!, {
+const EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY = "pk_test_dHJ1c3RpbmctY29yYWwtNTkuY2xlcmsuYWNjb3VudHMuZGV2JA";
+const EXPO_PUBLIC_CONVEX_URL = "https://mild-canary-773.convex.cloud";
+
+const convex = new ConvexReactClient(EXPO_PUBLIC_CONVEX_URL, {
   unsavedChangesWarning: false,
 });
 
@@ -17,14 +20,14 @@ const tokenCache = {
   async getToken(key: string) {
     try {
       return SecureStore.getItemAsync(key);
-    } catch (err) {
+    } catch {
       return null;
     }
   },
   async saveToken(key: string, value: string) {
     try {
       return SecureStore.setItemAsync(key, value);
-    } catch (err) {
+    } catch {
       return;
     }
   },
@@ -33,10 +36,7 @@ const tokenCache = {
 export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <ClerkProvider
-        publishableKey={process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!}
-        tokenCache={tokenCache}
-      >
+      <ClerkProvider publishableKey={EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY} tokenCache={tokenCache}>
         <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
           <ThemeProvider>
             <Slot />

@@ -224,7 +224,7 @@ export default function CreateScreen() {
             >
               <Ionicons name="rocket" size={24} color="#fff" />
               <Text style={styles.postButtonText}>
-                {loading ? "Posting... " : "Share with World "}
+                {loading ? "Posting... " : "Post"}
               </Text>
             </LinearGradient>
           </BouncyButton>
