@@ -1,50 +1,98 @@
-# Welcome to your Expo app 👋
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+# Framez
 
-## Get started
+Framez is a mobile application built with React Native and Expo. It allows users to share and view photos, interact with posts through likes and comments, and manage their profiles. The backend is powered by Convex, providing a seamless and real-time data synchronization experience.
 
-1. Install dependencies
+## Features
 
-   ```bash
-   npm install
-   ```
+-   **Authentication:** Secure user sign-up and sign-in functionality using Clerk.
+-   **Feed:** A scrollable feed to view photos shared by other users.
+-   **Create Post:** Upload and share your own photos.
+-   **Profile:** View and manage your user profile.
+-   **Likes and Comments:** Interact with posts by liking and commenting on them.
+-   **Real-time Updates:** Data is synchronized in real-time using Convex.
 
-2. Start the app
+## Tech Stack
 
-   ```bash
-   npx expo start
-   ```
+-   **Frontend:**
+    -   React Native
+    -   Expo
+    -   TypeScript
+    -   React Navigation
+    -   Clerk for authentication
+-   **Backend:**
+    -   Convex
 
-In the output, you'll find options to open the app in a
+## Getting Started
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+To get a local copy up and running, follow these simple steps.
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+### Prerequisites
 
-## Get a fresh project
+Before you begin, ensure you have the following installed:
 
-When you're ready, run:
+-   **Node.js:** [Download & Install Node.js](https://nodejs.org/en/download/) (LTS version recommended)
+-   **npm:** Node Package Manager, which comes with Node.js.
+-   **Expo CLI:** Install globally via npm:
+    ```sh
+    npm install -g expo-cli
+    ```
+-   **Git:** [Download & Install Git](https://git-scm.com/downloads)
 
-```bash
-npm run reset-project
-```
+### Installation
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+1.  **Clone the repository:**
+    ```sh
+    git clone https://github.com/xieumar/HNG-Framez.git
+    cd framez
+    ```
+    
+2.  **Install NPM packages:**
+    Navigate into the cloned project directory and install the required dependencies:
+    ```sh
+    npm install
+    ```
 
-## Learn more
+3.  **Set up Environment Variables (Convex and Clerk):**
+    Framez uses Convex for its backend and Clerk for authentication. You'll need to set up your own Convex project and Clerk application.
 
-To learn more about developing your project with Expo, look at the following resources:
+    -   **Convex:**
+        1.  Go to [Convex](https://www.convex.dev/) and create a new project.
+        2.  Install the Convex CLI: `npm install -g convex-cli`
+        3.  Log in to Convex: `npx convex login`
+        4.  Deploy your Convex functions: `npx convex deploy`
+        5.  Copy your `CONVEX_URL` from the Convex dashboard.
+        6.  Create a `.env` file in the root of your project and add your Convex deployment URL:
+            ```
+            EXPO_PUBLIC_CONVEX_URL="YOUR_CONVEX_DEPLOYMENT_URL"
+            ```
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+    -   **Clerk:**
+        1.  Go to [Clerk](https://clerk.com/) and create a new application.
+        2.  Obtain your `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` from your Clerk dashboard.
+        3.  Add these to your `.env` file:
+            ```
+            EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY="YOUR_CLERK_PUBLISHABLE_KEY"
+            CLERK_SECRET_KEY="YOUR_CLERK_SECRET_KEY"
+            ```
+        *Note: `CLERK_SECRET_KEY` is for server-side operations and should not be exposed in client-side code. Ensure your Convex functions handle Clerk webhooks securely.*
 
-## Join the community
+4.  **Start the development server:**
+    Once all dependencies are installed and environment variables are set, you can start the Expo development server:
+    ```sh
+    npm start
+    ```
+    This will open a new tab in your browser with the Expo Dev Tools. You can then run the app on an iOS simulator, Android emulator, or on your physical device by scanning the QR code with the Expo Go app.
 
-Join our community of developers creating universal apps.
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+####  Development Notes
+
+    - Use expo doctor to diagnose common issues.
+
+    - Run npx convex dev to start the Convex local backend during development.
+
+    - For production builds, use eas build (Expo Application Services).
+
+##### License
+
+This project is licensed under the MIT License
