@@ -16,6 +16,7 @@ import {
   Platform,
   Share,
   ScrollView,
+  KeyboardAvoidingView,
 } from "react-native";
 import { useState, useMemo } from "react";
 import { useTheme } from "../../context/ThemeContext";
@@ -283,7 +284,7 @@ export default function FeedScreen() {
     setOptimisticCommentDeltas(prev => {
       const newMap = new Map(prev);
       const currentDelta = newMap.get(selectedPost._id) ?? 0;
-      newMap.set(selectedPost._id, currentDelta );
+      newMap.set(selectedPost._id, currentDelta + 1);
       return newMap;
     });
 
@@ -612,85 +613,91 @@ export default function FeedScreen() {
 
       {/* Comments Modal */}
       <Modal visible={commentModalVisible} transparent animationType="slide">
-        <View style={[styles.commentsModal, { backgroundColor: colors.background, paddingTop: insets.top }]}>
-          <View style={[styles.commentsHeader, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-            <Text style={[styles.commentsTitle, { color: colors.text }]}>
-              Comments ({
-                selectedPost 
-                  ? (postsWithOptimisticCounts.find(p => p._id === selectedPost._id)?.optimisticCommentCount ?? selectedPost.commentsCount ?? 0)
-                  : 0
-              })
-            </Text>
-            <TouchableOpacity onPress={() => setCommentModalVisible(false)}>
-              <Ionicons name="close" size={28} color={colors.text} />
-            </TouchableOpacity>
-          </View>
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={{ flex: 1 }}
+          keyboardVerticalOffset={0}
+        >
+          <View style={[styles.commentsModal, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+            <View style={[styles.commentsHeader, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+              <Text style={[styles.commentsTitle, { color: colors.text }]}>
+                Comments ({
+                  selectedPost 
+                    ? (postsWithOptimisticCounts.find(p => p._id === selectedPost._id)?.optimisticCommentCount ?? selectedPost.commentsCount ?? 0)
+                    : 0
+                })
+              </Text>
+              <TouchableOpacity onPress={() => setCommentModalVisible(false)}>
+                <Ionicons name="close" size={28} color={colors.text} />
+              </TouchableOpacity>
+            </View>
 
-          <ScrollView style={styles.commentsList}>
-            {comments?.map((comment) => (
-              <View key={comment._id} style={[styles.commentItem, { backgroundColor: colors.card }]}>
-                <View style={styles.commentHeader}>
-                  {comment.author?.avatar ? (
-                    <Image
-                      source={{ uri: comment.author.avatar }}
-                      style={styles.commentAvatar}
-                    />
-                  ) : (
-                    <LinearGradient
-                      colors={[colors.gradient1, colors.gradient2]}
-                      style={[styles.commentAvatar, styles.avatarPlaceholder]}
-                    >
-                      <Text style={styles.commentAvatarText}>
-                        {comment.author?.name?.charAt(0).toUpperCase() || "?"}
+            <ScrollView style={styles.commentsList}>
+              {comments?.map((comment) => (
+                <View key={comment._id} style={[styles.commentItem, { backgroundColor: colors.card }]}>
+                  <View style={styles.commentHeader}>
+                    {comment.author?.avatar ? (
+                      <Image
+                        source={{ uri: comment.author.avatar }}
+                        style={styles.commentAvatar}
+                      />
+                    ) : (
+                      <LinearGradient
+                        colors={[colors.gradient1, colors.gradient2]}
+                        style={[styles.commentAvatar, styles.avatarPlaceholder]}
+                      >
+                        <Text style={styles.commentAvatarText}>
+                          {comment.author?.name?.charAt(0).toUpperCase() || "?"}
+                        </Text>
+                      </LinearGradient>
+                    )}
+                    <View style={styles.commentInfo}>
+                      <Text style={[styles.commentAuthor, { color: colors.text }]}>
+                        {comment.author?.name || "Unknown"}
                       </Text>
-                    </LinearGradient>
-                  )}
-                  <View style={styles.commentInfo}>
-                    <Text style={[styles.commentAuthor, { color: colors.text }]}>
-                      {comment.author?.name || "Unknown"}
-                    </Text>
-                    <Text style={[styles.commentTime, { color: colors.textSecondary }]}>
-                      {formatTimestamp(comment.createdAt)}
-                    </Text>
+                      <Text style={[styles.commentTime, { color: colors.textSecondary }]}>
+                        {formatTimestamp(comment.createdAt)}
+                      </Text>
+                    </View>
                   </View>
+                  <Text style={[styles.commentText, { color: colors.text }]}>
+                    {comment.content}
+                  </Text>
                 </View>
-                <Text style={[styles.commentText, { color: colors.text }]}>
-                  {comment.content}
-                </Text>
-              </View>
-            ))}
-          </ScrollView>
+              ))}
+            </ScrollView>
 
-          <View style={[styles.commentInputContainer, { 
-            backgroundColor: colors.card, 
-            borderTopColor: colors.border,
-            paddingBottom: Math.max(insets.bottom, 12)
-          }]}>
-            <TextInput
-              style={[styles.commentInput, {
-                backgroundColor: colors.surface,
-                color: colors.text,
-              }]}
-              placeholder="Write a comment..."
-              placeholderTextColor={colors.textSecondary}
-              value={commentContent}
-              onChangeText={setCommentContent}
-              multiline
-            />
-            <TouchableOpacity
-              onPress={submitComment}
-              disabled={loading || !commentContent.trim()}
-              style={[styles.sendButton, (!commentContent.trim() || loading) && styles.sendButtonDisabled]}
-            >
-              <LinearGradient
-                colors={[colors.primary, colors.secondary]}
-                style={styles.sendButtonGradient}
+            <View style={[styles.commentInputContainer, { 
+              backgroundColor: colors.card, 
+              borderTopColor: colors.border,
+              paddingBottom: Math.max(insets.bottom, 12)
+            }]}>
+              <TextInput
+                style={[styles.commentInput, {
+                  backgroundColor: colors.surface,
+                  color: colors.text,
+                }]}
+                placeholder="Write a comment..."
+                placeholderTextColor={colors.textSecondary}
+                value={commentContent}
+                onChangeText={setCommentContent}
+                multiline
+              />
+              <TouchableOpacity
+                onPress={submitComment}
+                disabled={loading || !commentContent.trim()}
+                style={[styles.sendButton, (!commentContent.trim() || loading) && styles.sendButtonDisabled]}
               >
-                <Ionicons name="send" size={20} color="#fff" />
-              </LinearGradient>
-            </TouchableOpacity>
+                <LinearGradient
+                  colors={[colors.primary, colors.secondary]}
+                  style={styles.sendButtonGradient}
+                >
+                  <Ionicons name="send" size={20} color="#fff" />
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </>
   );
