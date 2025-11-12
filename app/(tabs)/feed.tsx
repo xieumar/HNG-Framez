@@ -284,7 +284,7 @@ export default function FeedScreen() {
     setOptimisticCommentDeltas(prev => {
       const newMap = new Map(prev);
       const currentDelta = newMap.get(selectedPost._id) ?? 0;
-      newMap.set(selectedPost._id, currentDelta + 1);
+      newMap.set(selectedPost._id, currentDelta);
       return newMap;
     });
 

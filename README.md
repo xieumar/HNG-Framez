@@ -10,7 +10,7 @@ Framez is a mobile application built with React Native and Expo. It allows users
 -   **Create Post:** Upload and share your own photos.
 -   **Profile:** View and manage your user profile.
 -   **Likes and Comments:** Interact with posts by liking and commenting on them.
--   **Real-time Updates:** Data is synchronized in real-time using Convex.
+-   **Real-time Updates:** Convex automatically syncs data changes across users, providing a fast and consistent experience without manual refreshes.
 
 ## Tech Stack
 
@@ -21,7 +21,7 @@ Framez is a mobile application built with React Native and Expo. It allows users
     -   React Navigation
     -   Clerk for authentication
 -   **Backend:**
-    -   Convex
+    -   Convex: A serverless backend platform designed for real-time apps. Convex simplifies data handling by integrating database, business logic, and live synchronization in one system. It eliminates the need for complex APIs and ensures instant updates to all connected clients when data changes.
 
 ## Getting Started
 
